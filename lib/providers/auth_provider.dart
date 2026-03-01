@@ -52,10 +52,7 @@ class AuthProvider extends ChangeNotifier {
     unawaited(_resolveSession(_authService.currentUserId));
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     _setLoadingStatus(AuthStatus.authenticating);
     try {
       await _authService.signInWithEmailAndPassword(
@@ -115,10 +112,7 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       _safeNotify();
     } catch (error) {
-      _applyFailure(
-        _errorMapper.map(error),
-        fallbackStatus: previousStatus,
-      );
+      _applyFailure(_errorMapper.map(error), fallbackStatus: previousStatus);
     }
   }
 
@@ -129,8 +123,23 @@ class AuthProvider extends ChangeNotifier {
     _safeNotify();
 
     try {
-      await _authService.reloadCurrentUser();
+      await _authService.sendEmailVerification();
+      _status = AuthStatus.emailVerificationRequired;
+      _isLoading = false;
+      _safeNotify();
+    } catch (error) {
+      _applyFailure(_errorMapper.map(error), fallbackStatus: previousStatus);
+    }
+  }
 
+  Future<void> refreshVerificationStatus() async {
+    final previousStatus = _status;
+    _isLoading = true;
+    _failure = null;
+    _safeNotify();
+
+    try {
+      await _authService.reloadCurrentUser();
       final uid = _authService.currentUserId;
       if (uid == null) {
         _setUnauthenticated();
@@ -146,15 +155,11 @@ class AuthProvider extends ChangeNotifier {
         return;
       }
 
-      await _authService.sendEmailVerification();
       _status = AuthStatus.emailVerificationRequired;
       _isLoading = false;
       _safeNotify();
     } catch (error) {
-      _applyFailure(
-        _errorMapper.map(error),
-        fallbackStatus: previousStatus,
-      );
+      _applyFailure(_errorMapper.map(error), fallbackStatus: previousStatus);
     }
   }
 
@@ -168,10 +173,7 @@ class AuthProvider extends ChangeNotifier {
       await _authService.signOut();
       _setUnauthenticated();
     } catch (error) {
-      _applyFailure(
-        _errorMapper.map(error),
-        fallbackStatus: previousStatus,
-      );
+      _applyFailure(_errorMapper.map(error), fallbackStatus: previousStatus);
     }
   }
 
@@ -247,10 +249,7 @@ class AuthProvider extends ChangeNotifier {
       if (_isStale(requestVersion)) {
         return;
       }
-      _applyFailure(
-        _errorMapper.map(error),
-        fallbackStatus: AuthStatus.error,
-      );
+      _applyFailure(_errorMapper.map(error), fallbackStatus: AuthStatus.error);
     }
   }
 
@@ -276,7 +275,10 @@ class AuthProvider extends ChangeNotifier {
     _safeNotify();
   }
 
-  void _applyFailure(AuthFailure failure, {required AuthStatus fallbackStatus}) {
+  void _applyFailure(
+    AuthFailure failure, {
+    required AuthStatus fallbackStatus,
+  }) {
     _failure = failure;
     _isLoading = false;
     _status = fallbackStatus;

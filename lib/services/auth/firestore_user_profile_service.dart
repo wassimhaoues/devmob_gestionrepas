@@ -26,12 +26,7 @@ class FirestoreUserProfileService implements UserProfileService {
       return null;
     }
 
-    return AppUser.fromFirestore(
-      <String, dynamic>{
-        ...data,
-        'uid': uid,
-      },
-    );
+    return AppUser.fromFirestore(<String, dynamic>{...data, 'uid': uid});
   }
 
   @override

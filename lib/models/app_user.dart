@@ -28,7 +28,9 @@ class AppUser {
   factory AppUser.fromFirestore(Map<String, dynamic> data) {
     final uid = (data['uid'] as String? ?? '').trim();
     if (uid.isEmpty) {
-      throw const FormatException('User document is missing a valid uid field.');
+      throw const FormatException(
+        'User document is missing a valid uid field.',
+      );
     }
 
     final email = (data['email'] as String? ?? '').trim().toLowerCase();

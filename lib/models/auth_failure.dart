@@ -12,10 +12,7 @@ enum AuthFailureCode {
 }
 
 class AuthFailure {
-  const AuthFailure({
-    required this.code,
-    required this.message,
-  });
+  const AuthFailure({required this.code, required this.message});
 
   final AuthFailureCode code;
   final String message;

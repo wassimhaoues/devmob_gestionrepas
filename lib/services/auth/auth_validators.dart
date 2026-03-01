@@ -4,8 +4,8 @@ class AuthValidators {
     caseSensitive: false,
   );
 
-  static String? validateEmail(String value) {
-    final normalized = value.trim().toLowerCase();
+  static String? validateEmail(String? value) {
+    final normalized = (value ?? '').trim().toLowerCase();
     if (normalized.isEmpty) {
       return 'Email is required.';
     }
@@ -15,11 +15,12 @@ class AuthValidators {
     return null;
   }
 
-  static String? validatePassword(String value) {
-    if (value.isEmpty) {
+  static String? validatePassword(String? value) {
+    final normalized = value ?? '';
+    if (normalized.isEmpty) {
       return 'Password is required.';
     }
-    if (value.length < 8) {
+    if (normalized.length < 8) {
       return 'Password must be at least 8 characters.';
     }
     return null;
@@ -38,8 +39,8 @@ class AuthValidators {
     return null;
   }
 
-  static String? validateDisplayName(String value) {
-    final normalized = value.trim();
+  static String? validateDisplayName(String? value) {
+    final normalized = (value ?? '').trim();
     if (normalized.isEmpty) {
       return 'Display name is required.';
     }
