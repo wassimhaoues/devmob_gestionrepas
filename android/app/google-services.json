@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "919049180578",
+    "project_id": "flutter-project-gl-b152a",
+    "storage_bucket": "flutter-project-gl-b152a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919049180578:android:ac32c019456dab1f2acefb",
+        "android_client_info": {
+          "package_name": "com.example.devmob_gestionrepas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBSUR2iJfxmpiWtcas3A7tFgaVvP1mtYc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
