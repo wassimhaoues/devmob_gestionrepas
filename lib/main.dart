@@ -1,11 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+
+import 'providers/auth_provider.dart';
+import 'services/auth/auth_service.dart';
+import 'services/auth/firebase_auth_service.dart';
+import 'services/auth/firestore_user_profile_service.dart';
+import 'services/auth/user_profile_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        Provider<AuthService>(create: (_) => FirebaseAuthService()),
+        Provider<UserProfileService>(
+          create: (_) => FirestoreUserProfileService(),
+        ),
+        ChangeNotifierProvider<AuthProvider>(
+          create: (context) => AuthProvider(
+            authService: context.read<AuthService>(),
+            userProfileService: context.read<UserProfileService>(),
+          ),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
