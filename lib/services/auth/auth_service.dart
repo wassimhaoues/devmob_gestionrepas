@@ -2,6 +2,8 @@ abstract interface class AuthService {
   Stream<String?> authStateChanges();
 
   String? get currentUserId;
+  String? get currentUserEmail;
+  String? get currentUserDisplayName;
   bool get isEmailVerified;
 
   Future<void> signInWithEmailAndPassword({

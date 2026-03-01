@@ -17,6 +17,12 @@ class FirebaseAuthService implements AuthService {
   String? get currentUserId => _firebaseAuth.currentUser?.uid;
 
   @override
+  String? get currentUserEmail => _firebaseAuth.currentUser?.email;
+
+  @override
+  String? get currentUserDisplayName => _firebaseAuth.currentUser?.displayName;
+
+  @override
   bool get isEmailVerified => _firebaseAuth.currentUser?.emailVerified ?? false;
 
   @override
@@ -24,8 +30,9 @@ class FirebaseAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    throw UnimplementedError(
-      'Sign-in implementation is scheduled for the next auth commit.',
+    await _firebaseAuth.signInWithEmailAndPassword(
+      email: _normalizeEmail(email),
+      password: password,
     );
   }
 
@@ -34,36 +41,54 @@ class FirebaseAuthService implements AuthService {
     required String email,
     required String password,
   }) async {
-    throw UnimplementedError(
-      'Registration implementation is scheduled for the next auth commit.',
+    final credentials = await _firebaseAuth.createUserWithEmailAndPassword(
+      email: _normalizeEmail(email),
+      password: password,
     );
+    final user = credentials.user;
+    if (user == null) {
+      throw StateError('Firebase did not return a user after registration.');
+    }
+    return user.uid;
   }
 
   @override
   Future<void> sendEmailVerification() async {
-    throw UnimplementedError(
-      'Email verification implementation is scheduled for the next auth commit.',
-    );
+    final user = _requireCurrentUser();
+    if (user.emailVerified) {
+      return;
+    }
+    await user.sendEmailVerification();
   }
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {
-    throw UnimplementedError(
-      'Password reset implementation is scheduled for the next auth commit.',
+    await _firebaseAuth.sendPasswordResetEmail(
+      email: _normalizeEmail(email),
     );
   }
 
   @override
   Future<void> reloadCurrentUser() async {
-    throw UnimplementedError(
-      'User reload implementation is scheduled for the next auth commit.',
-    );
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      return;
+    }
+    await user.reload();
   }
 
   @override
   Future<void> signOut() async {
-    throw UnimplementedError(
-      'Sign-out implementation is scheduled for the next auth commit.',
-    );
+    await _firebaseAuth.signOut();
+  }
+
+  String _normalizeEmail(String email) => email.trim().toLowerCase();
+
+  User _requireCurrentUser() {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw StateError('No authenticated Firebase user available.');
+    }
+    return user;
   }
 }

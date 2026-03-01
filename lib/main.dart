@@ -23,7 +23,7 @@ void main() async {
           create: (context) => AuthProvider(
             authService: context.read<AuthService>(),
             userProfileService: context.read<UserProfileService>(),
-          ),
+          )..initialize(),
         ),
       ],
       child: const MyApp(),

@@ -11,10 +11,26 @@ class FirestoreUserProfileService implements UserProfileService {
 
   FirebaseFirestore get firestore => _firestore;
 
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
+
   @override
   Future<AppUser?> fetchUserById(String uid) async {
-    throw UnimplementedError(
-      'User profile fetch is scheduled for the next auth commit.',
+    final snapshot = await _users.doc(uid).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    final data = snapshot.data();
+    if (data == null) {
+      return null;
+    }
+
+    return AppUser.fromFirestore(
+      <String, dynamic>{
+        ...data,
+        'uid': uid,
+      },
     );
   }
 
@@ -24,9 +40,18 @@ class FirestoreUserProfileService implements UserProfileService {
     required String email,
     required String displayName,
   }) async {
-    throw UnimplementedError(
-      'Initial profile creation is scheduled for the next auth commit.',
-    );
+    await _users.doc(uid).set(<String, dynamic>{
+      'uid': uid,
+      'email': email.trim().toLowerCase(),
+      'displayName': displayName.trim(),
+      'photoUrl': null,
+      'emailVerified': false,
+      'onboardingCompleted': false,
+      'preferences': const <String, dynamic>{},
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'lastLoginAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   @override
@@ -34,15 +59,17 @@ class FirestoreUserProfileService implements UserProfileService {
     required String uid,
     required bool emailVerified,
   }) async {
-    throw UnimplementedError(
-      'Verification status sync is scheduled for the next auth commit.',
-    );
+    await _users.doc(uid).set(<String, dynamic>{
+      'emailVerified': emailVerified,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   @override
   Future<void> updateLastLogin(String uid) async {
-    throw UnimplementedError(
-      'Last login update is scheduled for the next auth commit.',
-    );
+    await _users.doc(uid).set(<String, dynamic>{
+      'lastLoginAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }
