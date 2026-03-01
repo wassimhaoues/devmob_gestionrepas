@@ -9,7 +9,7 @@ In scope:
 - Read recipes (authenticated user only)
 - Update recipe
 - Delete recipe
-- Category assignment (`petit_dejeuner`, `dejeuner`, `diner`, `dessert`)
+- Category assignment (`breakfast`, `lunch`, `dinner`, `dessert`)
 - Embedded ingredients with canonical normalization
 - Preparation steps
 - Optional image metadata fields
@@ -95,7 +95,7 @@ Collection path:
 Recipe document fields:
 - `title`: string
 - `description`: string
-- `category`: string enum (`petit_dejeuner`, `dejeuner`, `diner`, `dessert`)
+- `category`: string enum (`breakfast`, `lunch`, `dinner`, `dessert`)
 - `isFavorite`: bool
 - `ingredients`: array of ingredient maps
 - `steps`: array of step maps
@@ -117,6 +117,8 @@ Step map fields (embedded):
 Notes:
 - Ingredients are embedded; no `ingredients` subcollection.
 - `canonicalName` is persisted at write time for deterministic downstream usage.
+- UI can still display localized labels (for example French) mapped from the
+  English enum values.
 
 ## 5. Ingredient Canonical Normalization Strategy
 
@@ -139,9 +141,9 @@ Important boundaries:
 - No synonym registry.
 
 Examples:
-- `  Tomátes  ` -> `displayName: "Tomátes"`, `canonicalName: "tomate"`
-- `POMMES de terre` -> `canonicalName: "pomme de terre"`
-- `OEUFS` -> `canonicalName: "oeuf"` (with simple plural reduction)
+- `  Tómatoes  ` -> `displayName: "Tómatoes"`, `canonicalName: "tomato"`
+- `POTATOES` -> `canonicalName: "potato"`
+- `EGGS` -> `canonicalName: "egg"` (with simple plural reduction)
 
 ## 6. Data Validation Strategy
 
