@@ -52,7 +52,7 @@ class _AuthenticatedPlaceholderPage extends StatelessWidget {
         : 'Welcome';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('DEVMOB-GestionRepas')),
+      appBar: AppBar(title: const Text('Gestion Repas')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -62,7 +62,7 @@ class _AuthenticatedPlaceholderPage extends StatelessWidget {
               Text(greeting),
               const SizedBox(height: 12),
               const Text(
-                'Authentication is connected. Recipe and meal planning modules come next.',
+                'Congratulations! You are now connected. Recipe and meal planning modules come next.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
