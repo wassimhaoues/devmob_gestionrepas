@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/auth_status.dart';
 import '../../providers/auth_provider.dart';
+import '../dashboard/dashboard_page.dart';
 import 'login_page.dart';
 import 'verify_email_page.dart';
 
@@ -26,7 +27,7 @@ class AuthGate extends StatelessWidget {
       case AuthStatus.emailVerificationRequired:
         return const VerifyEmailPage();
       case AuthStatus.authenticated:
-        return const _AuthenticatedPlaceholderPage();
+        return const DashboardPage();
     }
   }
 }
@@ -37,45 +38,5 @@ class _AuthLoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(body: Center(child: CircularProgressIndicator()));
-  }
-}
-
-class _AuthenticatedPlaceholderPage extends StatelessWidget {
-  const _AuthenticatedPlaceholderPage();
-
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final userName = authProvider.currentUser?.displayName;
-    final greeting = (userName != null && userName.isNotEmpty)
-        ? 'Welcome, $userName'
-        : 'Welcome';
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Gestion Repas')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(greeting),
-              const SizedBox(height: 12),
-              const Text(
-                'Congratulations! You are now connected. Recipe and meal planning modules come next.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: authProvider.isLoading
-                    ? null
-                    : () => authProvider.signOut(),
-                child: const Text('Sign out'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

@@ -4,15 +4,19 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'providers/recipe_provider.dart';
 import 'services/auth/auth_service.dart';
 import 'services/auth/firebase_auth_service.dart';
 import 'services/auth/firestore_user_profile_service.dart';
 import 'services/auth/user_profile_service.dart';
+import 'services/recipe/firestore_recipe_service.dart';
+import 'services/recipe/recipe_service.dart';
 import 'views/auth/auth_gate.dart';
 import 'views/auth/forgot_password_page.dart';
 import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
 import 'views/auth/verify_email_page.dart';
+import 'views/dashboard/dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,11 +29,16 @@ void main() async {
         Provider<UserProfileService>(
           create: (_) => FirestoreUserProfileService(),
         ),
+        Provider<RecipeService>(create: (_) => FirestoreRecipeService()),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) => AuthProvider(
             authService: context.read<AuthService>(),
             userProfileService: context.read<UserProfileService>(),
           )..initialize(),
+        ),
+        ChangeNotifierProvider<RecipeProvider>(
+          create: (context) =>
+              RecipeProvider(recipeService: context.read<RecipeService>()),
         ),
       ],
       child: const MyApp(),
@@ -54,6 +63,7 @@ class MyApp extends StatelessWidget {
         registerRoute: (_) => const RegisterPage(),
         forgotPasswordRoute: (_) => const ForgotPasswordPage(),
         verifyEmailRoute: (_) => const VerifyEmailPage(),
+        dashboardRoute: (_) => const DashboardPage(),
       },
       home: const AuthGate(),
     );
