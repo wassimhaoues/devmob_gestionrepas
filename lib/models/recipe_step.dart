@@ -1,20 +1,11 @@
 class RecipeStep {
-  const RecipeStep({
-    required this.order,
-    required this.text,
-  });
+  const RecipeStep({required this.order, required this.text});
 
   final int order;
   final String text;
 
-  RecipeStep copyWith({
-    int? order,
-    String? text,
-  }) {
-    return RecipeStep(
-      order: order ?? this.order,
-      text: text ?? this.text,
-    );
+  RecipeStep copyWith({int? order, String? text}) {
+    return RecipeStep(order: order ?? this.order, text: text ?? this.text);
   }
 
   factory RecipeStep.fromMap(Map<String, dynamic> data) {
@@ -25,10 +16,7 @@ class RecipeStep {
   }
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'order': order,
-      'text': text,
-    };
+    return <String, dynamic>{'order': order, 'text': text};
   }
 
   static int _readInt(Object? value) {
