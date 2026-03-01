@@ -14,4 +14,17 @@ enum RecipeCategory {
       orElse: () => RecipeCategory.breakfast,
     );
   }
+
+  String get label {
+    switch (this) {
+      case RecipeCategory.breakfast:
+        return 'Breakfast';
+      case RecipeCategory.lunch:
+        return 'Lunch';
+      case RecipeCategory.dinner:
+        return 'Dinner';
+      case RecipeCategory.dessert:
+        return 'Dessert';
+    }
+  }
 }

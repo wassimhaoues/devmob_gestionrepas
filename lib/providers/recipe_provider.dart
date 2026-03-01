@@ -37,6 +37,7 @@ class RecipeProvider extends ChangeNotifier {
       _status == RecipeProviderStatus.loading ||
       _status == RecipeProviderStatus.mutating;
   String? get uid => _uid;
+  Recipe? recipeById(String recipeId) => _findRecipeById(recipeId);
 
   Future<void> startWatching({required String uid}) async {
     _uid = uid;
