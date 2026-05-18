@@ -102,6 +102,34 @@ void main() {
       containsAll(<String>['kg', 'g']),
     );
   });
+
+  test('counts the same planned recipe once per meal-plan entry', () async {
+    recipeService.recipesById['recipe-1'] = _recipe(
+      id: 'recipe-1',
+      ingredients: const <Ingredient>[
+        Ingredient(
+          displayName: 'Eggs',
+          canonicalName: 'egg',
+          quantity: 2,
+          unit: 'piece',
+        ),
+      ],
+    );
+
+    final shoppingList = await generatorService.generateForWeek(
+      uid: 'user-1',
+      weekStartDate: DateTime(2026, 5, 18),
+      entries: <MealPlanEntry>[
+        _entry(recipeId: 'recipe-1', slotType: MealSlotType.breakfast),
+        _entry(recipeId: 'recipe-1', slotType: MealSlotType.lunch),
+        _entry(recipeId: 'recipe-1', slotType: MealSlotType.dinner),
+      ],
+    );
+
+    expect(shoppingList.items, hasLength(1));
+    expect(shoppingList.items.first.totalQuantity, 6);
+    expect(shoppingList.items.first.sourceRecipeIds, <String>['recipe-1']);
+  });
 }
 
 MealPlanEntry _entry({
