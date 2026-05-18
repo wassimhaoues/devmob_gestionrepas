@@ -133,17 +133,13 @@ class _RecipeListPageState extends State<RecipeListPage> {
   }
 
   Future<void> _openAddRecipe(BuildContext context) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const AddRecipePage()));
+    await Navigator.of(context).pushNamed(addRecipeRoute);
   }
 
   Future<void> _openRecipeDetail(BuildContext context, String recipeId) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => RecipeDetailPage(recipeId: recipeId),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).pushNamed(recipeDetailRoute, arguments: recipeId);
   }
 }
 

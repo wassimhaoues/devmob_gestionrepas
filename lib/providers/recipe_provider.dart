@@ -5,8 +5,10 @@ import 'package:flutter/foundation.dart';
 import '../models/ingredient.dart';
 import '../models/recipe.dart';
 import '../models/recipe_category.dart';
+import '../models/recipe_failure.dart';
 import '../models/recipe_step.dart';
 import '../services/recipe/ingredient_normalizer.dart';
+import '../services/recipe/recipe_exception.dart';
 import '../services/recipe/recipe_service.dart';
 import '../services/recipe/recipe_validators.dart';
 
@@ -26,13 +28,19 @@ class RecipeProvider extends ChangeNotifier {
   RecipeCategory? _activeCategory;
   bool _favoritesOnly = false;
   RecipeProviderStatus _status = RecipeProviderStatus.initial;
+  String? _selectedRecipeId;
   String? _errorMessage;
+  RecipeFailure? _failure;
 
   List<Recipe> get recipes => _recipes;
   RecipeCategory? get activeCategory => _activeCategory;
   bool get favoritesOnly => _favoritesOnly;
   RecipeProviderStatus get status => _status;
+  String? get selectedRecipeId => _selectedRecipeId;
+  Recipe? get selectedRecipe =>
+      _selectedRecipeId == null ? null : _findRecipeById(_selectedRecipeId!);
   String? get errorMessage => _errorMessage;
+  RecipeFailure? get failure => _failure;
   bool get isLoading =>
       _status == RecipeProviderStatus.loading ||
       _status == RecipeProviderStatus.mutating;
@@ -43,6 +51,7 @@ class RecipeProvider extends ChangeNotifier {
     _uid = uid;
     _status = RecipeProviderStatus.loading;
     _errorMessage = null;
+    _failure = null;
     _safeNotify();
 
     await _recipesSubscription?.cancel();
@@ -57,12 +66,11 @@ class RecipeProvider extends ChangeNotifier {
             _recipes = recipes;
             _status = RecipeProviderStatus.ready;
             _errorMessage = null;
+            _failure = null;
             _safeNotify();
           },
           onError: (Object error, StackTrace _) {
-            _status = RecipeProviderStatus.error;
-            _errorMessage = error.toString();
-            _safeNotify();
+            _applyServiceError(error);
           },
         );
   }
@@ -75,6 +83,7 @@ class RecipeProvider extends ChangeNotifier {
 
     _status = RecipeProviderStatus.loading;
     _errorMessage = null;
+    _failure = null;
     _safeNotify();
 
     try {
@@ -85,11 +94,78 @@ class RecipeProvider extends ChangeNotifier {
       );
       _recipes = recipes;
       _status = RecipeProviderStatus.ready;
+      _failure = null;
       _safeNotify();
     } catch (error) {
-      _status = RecipeProviderStatus.error;
-      _errorMessage = error.toString();
+      _applyServiceError(error);
+    }
+  }
+
+  Future<Recipe?> loadRecipeById(
+    String recipeId, {
+    bool forceRefresh = false,
+  }) async {
+    final normalizedId = recipeId.trim();
+    if (normalizedId.isEmpty) {
+      _applyMessageFailure(
+        const RecipeFailure(
+          code: RecipeFailureCode.invalidData,
+          message: 'Recipe id is required.',
+        ),
+      );
+      return null;
+    }
+
+    _selectedRecipeId = normalizedId;
+    final currentUid = _uid;
+    if (currentUid == null) {
+      _applyMessageFailure(
+        const RecipeFailure(
+          code: RecipeFailureCode.unauthenticated,
+          message: 'Authenticated user is required.',
+        ),
+      );
+      return null;
+    }
+
+    final cachedRecipe = _findRecipeById(normalizedId);
+    if (!forceRefresh && cachedRecipe != null) {
+      _status = RecipeProviderStatus.ready;
+      _errorMessage = null;
+      _failure = null;
       _safeNotify();
+      return cachedRecipe;
+    }
+
+    _status = RecipeProviderStatus.loading;
+    _errorMessage = null;
+    _failure = null;
+    _safeNotify();
+
+    try {
+      final recipe = await _recipeService.fetchRecipeById(
+        uid: currentUid,
+        recipeId: normalizedId,
+      );
+      if (recipe == null) {
+        _applyMessageFailure(
+          const RecipeFailure(
+            code: RecipeFailureCode.notFound,
+            message: 'Recipe not found.',
+          ),
+        );
+        return null;
+      }
+
+      _upsertRecipe(recipe);
+      _status = RecipeProviderStatus.ready;
+      _errorMessage = null;
+      _failure = null;
+      _safeNotify();
+      return recipe;
+    } catch (error) {
+      _applyServiceError(error);
+      return null;
     }
   }
 
@@ -121,7 +197,9 @@ class RecipeProvider extends ChangeNotifier {
     _activeCategory = null;
     _favoritesOnly = false;
     _status = RecipeProviderStatus.initial;
+    _selectedRecipeId = null;
     _errorMessage = null;
+    _failure = null;
     _safeNotify();
   }
 
@@ -140,6 +218,10 @@ class RecipeProvider extends ChangeNotifier {
       const errors = <String>['Authenticated user is required.'];
       _status = RecipeProviderStatus.error;
       _errorMessage = errors.first;
+      _failure = const RecipeFailure(
+        code: RecipeFailureCode.unauthenticated,
+        message: 'Authenticated user is required.',
+      );
       _safeNotify();
       return errors;
     }
@@ -153,16 +235,23 @@ class RecipeProvider extends ChangeNotifier {
       category: category,
       ingredients: normalizedIngredients,
       steps: normalizedSteps,
+      imageUrl: imageUrl,
+      imageStoragePath: imageStoragePath,
     );
     if (errors.isNotEmpty) {
       _status = RecipeProviderStatus.error;
       _errorMessage = errors.first;
+      _failure = RecipeFailure(
+        code: RecipeFailureCode.invalidData,
+        message: errors.first,
+      );
       _safeNotify();
       return errors;
     }
 
     _status = RecipeProviderStatus.mutating;
     _errorMessage = null;
+    _failure = null;
     _safeNotify();
 
     final now = DateTime.now();
@@ -182,14 +271,17 @@ class RecipeProvider extends ChangeNotifier {
     );
 
     try {
-      await _recipeService.createRecipe(uid: currentUid, recipe: payload);
+      final createdId = await _recipeService.createRecipe(
+        uid: currentUid,
+        recipe: payload,
+      );
+      _selectedRecipeId = createdId;
       _status = RecipeProviderStatus.ready;
+      _failure = null;
       _safeNotify();
       return const <String>[];
     } catch (error) {
-      _status = RecipeProviderStatus.error;
-      _errorMessage = error.toString();
-      _safeNotify();
+      _applyServiceError(error);
       return <String>[_errorMessage!];
     }
   }
@@ -210,6 +302,10 @@ class RecipeProvider extends ChangeNotifier {
       const errors = <String>['Authenticated user is required.'];
       _status = RecipeProviderStatus.error;
       _errorMessage = errors.first;
+      _failure = const RecipeFailure(
+        code: RecipeFailureCode.unauthenticated,
+        message: 'Authenticated user is required.',
+      );
       _safeNotify();
       return errors;
     }
@@ -222,10 +318,16 @@ class RecipeProvider extends ChangeNotifier {
       category: category,
       ingredients: normalizedIngredients,
       steps: normalizedSteps,
+      imageUrl: imageUrl,
+      imageStoragePath: imageStoragePath,
     );
     if (errors.isNotEmpty) {
       _status = RecipeProviderStatus.error;
       _errorMessage = errors.first;
+      _failure = RecipeFailure(
+        code: RecipeFailureCode.invalidData,
+        message: errors.first,
+      );
       _safeNotify();
       return errors;
     }
@@ -243,25 +345,25 @@ class RecipeProvider extends ChangeNotifier {
       steps: normalizedSteps,
       createdAt: existingRecipe?.createdAt ?? now,
       updatedAt: now,
-      imageUrl: _normalizeOptionalText(imageUrl) ?? existingRecipe?.imageUrl,
-      imageStoragePath:
-          _normalizeOptionalText(imageStoragePath) ??
-          existingRecipe?.imageStoragePath,
+      imageUrl: _normalizeOptionalText(imageUrl),
+      imageStoragePath: _normalizeOptionalText(imageStoragePath),
     );
 
     _status = RecipeProviderStatus.mutating;
     _errorMessage = null;
+    _failure = null;
     _safeNotify();
 
     try {
       await _recipeService.updateRecipe(uid: currentUid, recipe: payload);
+      _selectedRecipeId = payload.id;
+      _upsertRecipe(payload);
       _status = RecipeProviderStatus.ready;
+      _failure = null;
       _safeNotify();
       return const <String>[];
     } catch (error) {
-      _status = RecipeProviderStatus.error;
-      _errorMessage = error.toString();
-      _safeNotify();
+      _applyServiceError(error);
       return <String>[_errorMessage!];
     }
   }
@@ -269,25 +371,32 @@ class RecipeProvider extends ChangeNotifier {
   Future<bool> deleteRecipe(String recipeId) async {
     final currentUid = _uid;
     if (currentUid == null) {
-      _status = RecipeProviderStatus.error;
-      _errorMessage = 'Authenticated user is required.';
-      _safeNotify();
+      _applyMessageFailure(
+        const RecipeFailure(
+          code: RecipeFailureCode.unauthenticated,
+          message: 'Authenticated user is required.',
+        ),
+      );
       return false;
     }
 
     _status = RecipeProviderStatus.mutating;
     _errorMessage = null;
+    _failure = null;
     _safeNotify();
 
     try {
       await _recipeService.deleteRecipe(uid: currentUid, recipeId: recipeId);
+      _recipes = _recipes.where((recipe) => recipe.id != recipeId).toList();
+      if (_selectedRecipeId == recipeId) {
+        _selectedRecipeId = null;
+      }
       _status = RecipeProviderStatus.ready;
+      _failure = null;
       _safeNotify();
       return true;
     } catch (error) {
-      _status = RecipeProviderStatus.error;
-      _errorMessage = error.toString();
-      _safeNotify();
+      _applyServiceError(error);
       return false;
     }
   }
@@ -298,14 +407,18 @@ class RecipeProvider extends ChangeNotifier {
   }) async {
     final currentUid = _uid;
     if (currentUid == null) {
-      _status = RecipeProviderStatus.error;
-      _errorMessage = 'Authenticated user is required.';
-      _safeNotify();
+      _applyMessageFailure(
+        const RecipeFailure(
+          code: RecipeFailureCode.unauthenticated,
+          message: 'Authenticated user is required.',
+        ),
+      );
       return false;
     }
 
     _status = RecipeProviderStatus.mutating;
     _errorMessage = null;
+    _failure = null;
     _safeNotify();
 
     try {
@@ -314,13 +427,18 @@ class RecipeProvider extends ChangeNotifier {
         recipeId: recipeId,
         isFavorite: isFavorite,
       );
+      final recipe = _findRecipeById(recipeId);
+      if (recipe != null) {
+        _upsertRecipe(
+          recipe.copyWith(isFavorite: isFavorite, updatedAt: DateTime.now()),
+        );
+      }
       _status = RecipeProviderStatus.ready;
+      _failure = null;
       _safeNotify();
       return true;
     } catch (error) {
-      _status = RecipeProviderStatus.error;
-      _errorMessage = error.toString();
-      _safeNotify();
+      _applyServiceError(error);
       return false;
     }
   }
@@ -362,6 +480,18 @@ class RecipeProvider extends ChangeNotifier {
     return null;
   }
 
+  void _upsertRecipe(Recipe recipe) {
+    final updatedRecipes = List<Recipe>.from(_recipes);
+    final index = updatedRecipes.indexWhere((item) => item.id == recipe.id);
+    if (index >= 0) {
+      updatedRecipes[index] = recipe;
+    } else {
+      updatedRecipes.add(recipe);
+      updatedRecipes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    }
+    _recipes = updatedRecipes;
+  }
+
   String? _normalizeOptionalText(String? value) {
     final normalized = (value ?? '').trim();
     if (normalized.isEmpty) {
@@ -375,6 +505,24 @@ class RecipeProvider extends ChangeNotifier {
       return;
     }
     notifyListeners();
+  }
+
+  void _applyServiceError(Object error) {
+    if (error is RecipeException) {
+      _applyMessageFailure(error.failure);
+      return;
+    }
+
+    _applyMessageFailure(
+      RecipeFailure(code: RecipeFailureCode.unknown, message: error.toString()),
+    );
+  }
+
+  void _applyMessageFailure(RecipeFailure failure) {
+    _failure = failure;
+    _status = RecipeProviderStatus.error;
+    _errorMessage = failure.message;
+    _safeNotify();
   }
 
   @override

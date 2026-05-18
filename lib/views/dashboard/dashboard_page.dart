@@ -67,13 +67,7 @@ class _DashboardPageState extends State<DashboardPage> {
               title: 'Recipes',
               subtitle: 'Create, edit, and organize your personal recipes.',
               icon: Icons.restaurant_menu,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const RecipeListPage(),
-                  ),
-                );
-              },
+              onTap: () => Navigator.of(context).pushNamed(recipeListRoute),
             ),
             const SizedBox(height: 12),
             _DashboardTile(
