@@ -71,6 +71,14 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             const SizedBox(height: 12),
             _DashboardTile(
+              title: 'Favorite Recipes',
+              subtitle: 'Jump straight to your starred recipes.',
+              icon: Icons.star,
+              onTap: () =>
+                  Navigator.of(context).pushNamed(favoriteRecipesRoute),
+            ),
+            const SizedBox(height: 12),
+            _DashboardTile(
               title: 'Meal Plan',
               subtitle: 'Weekly calendar and meal assignment.',
               icon: Icons.calendar_month,

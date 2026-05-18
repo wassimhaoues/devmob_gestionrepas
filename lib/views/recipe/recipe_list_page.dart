@@ -11,9 +11,17 @@ import 'add_recipe_page.dart';
 import 'recipe_detail_page.dart';
 
 const String recipeListRoute = '/recipes';
+const String favoriteRecipesRoute = '/recipes/favorites';
 
 class RecipeListPage extends StatefulWidget {
-  const RecipeListPage({super.key});
+  const RecipeListPage({
+    super.key,
+    this.pageTitle = 'My Recipes',
+    this.favoritesOnlyView = false,
+  });
+
+  final String pageTitle;
+  final bool favoritesOnlyView;
 
   @override
   State<RecipeListPage> createState() => _RecipeListPageState();
@@ -27,12 +35,14 @@ class _RecipeListPageState extends State<RecipeListPage> {
     _syncRecipeWatcher(context);
 
     final recipeProvider = context.watch<RecipeProvider>();
-    final recipes = recipeProvider.recipes;
+    final recipes = widget.favoritesOnlyView
+        ? recipeProvider.recipes.where((recipe) => recipe.isFavorite).toList()
+        : recipeProvider.recipes;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Recipes'),
+        title: Text(widget.pageTitle),
         actions: [
           PopupMenuButton<RecipeCategory?>(
             tooltip: 'Filter category',
@@ -52,16 +62,18 @@ class _RecipeListPageState extends State<RecipeListPage> {
               ),
             ],
           ),
-          IconButton(
-            tooltip: recipeProvider.favoritesOnly
-                ? 'Show all recipes'
-                : 'Show favorites only',
-            onPressed: () =>
-                recipeProvider.setFavoritesOnly(!recipeProvider.favoritesOnly),
-            icon: Icon(
-              recipeProvider.favoritesOnly ? Icons.star : Icons.star_border,
+          if (!widget.favoritesOnlyView)
+            IconButton(
+              tooltip: recipeProvider.favoritesOnly
+                  ? 'Show all recipes'
+                  : 'Show favorites only',
+              onPressed: () => recipeProvider.setFavoritesOnly(
+                !recipeProvider.favoritesOnly,
+              ),
+              icon: Icon(
+                recipeProvider.favoritesOnly ? Icons.star : Icons.star_border,
+              ),
             ),
-          ),
         ],
       ),
       body: RefreshIndicator(
@@ -86,7 +98,15 @@ class _RecipeListPageState extends State<RecipeListPage> {
               }
 
               if (recipes.isEmpty) {
-                return _EmptyState(onAddPressed: () => _openAddRecipe(context));
+                return _EmptyState(
+                  onAddPressed: () => _openAddRecipe(context),
+                  favoritesOnlyView: widget.favoritesOnlyView,
+                  onBrowseAllPressed: widget.favoritesOnlyView
+                      ? () => Navigator.of(
+                          context,
+                        ).pushReplacementNamed(recipeListRoute)
+                      : null,
+                );
               }
 
               return ListView.separated(
@@ -282,12 +302,25 @@ class _RecipeThumbnail extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAddPressed});
+  const _EmptyState({
+    required this.onAddPressed,
+    required this.favoritesOnlyView,
+    this.onBrowseAllPressed,
+  });
 
   final VoidCallback onAddPressed;
+  final bool favoritesOnlyView;
+  final VoidCallback? onBrowseAllPressed;
 
   @override
   Widget build(BuildContext context) {
+    final title = favoritesOnlyView
+        ? 'No favorite recipes yet'
+        : 'No recipes yet';
+    final description = favoritesOnlyView
+        ? 'Star a recipe to keep it close at hand here.'
+        : 'Create your first recipe to start building your meal workflow.';
+
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
@@ -300,22 +333,29 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'No recipes yet',
+          title,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
         Text(
-          'Create your first recipe to start building your meal workflow.',
+          description,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: onAddPressed,
-          icon: const Icon(Icons.add),
-          label: const Text('Create Recipe'),
-        ),
+        if (!favoritesOnlyView)
+          FilledButton.icon(
+            onPressed: onAddPressed,
+            icon: const Icon(Icons.add),
+            label: const Text('Create Recipe'),
+          ),
+        if (favoritesOnlyView && onBrowseAllPressed != null)
+          FilledButton.icon(
+            onPressed: onBrowseAllPressed,
+            icon: const Icon(Icons.menu_book_outlined),
+            label: const Text('Browse All Recipes'),
+          ),
       ],
     );
   }
