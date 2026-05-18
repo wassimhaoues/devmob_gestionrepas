@@ -9,8 +9,10 @@ import 'services/auth/auth_service.dart';
 import 'services/auth/firebase_auth_service.dart';
 import 'services/auth/firestore_user_profile_service.dart';
 import 'services/auth/user_profile_service.dart';
+import 'services/recipe/default_recipe_image_processor.dart';
 import 'services/recipe/firestore_recipe_service.dart';
 import 'services/recipe/firebase_recipe_image_storage_service.dart';
+import 'services/recipe/recipe_image_processor.dart';
 import 'services/recipe/recipe_image_storage_service.dart';
 import 'services/recipe/recipe_service.dart';
 import 'views/auth/auth_gate.dart';
@@ -38,6 +40,9 @@ void main() async {
         Provider<RecipeService>(create: (_) => FirestoreRecipeService()),
         Provider<RecipeImageStorageService>(
           create: (_) => FirebaseRecipeImageStorageService(),
+        ),
+        Provider<RecipeImageProcessor>(
+          create: (_) => DefaultRecipeImageProcessor(),
         ),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) => AuthProvider(
