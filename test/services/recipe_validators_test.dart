@@ -126,5 +126,31 @@ void main() {
 
       expect(errors, contains('At least one preparation step is required.'));
     });
+
+    test('returns error when image metadata is only partially provided', () {
+      final errors = RecipeValidators.validateRecipeInput(
+        title: 'Soup',
+        description: null,
+        category: RecipeCategory.lunch,
+        ingredients: const <Ingredient>[
+          Ingredient(
+            displayName: 'Water',
+            canonicalName: 'water',
+            quantity: 1,
+            unit: 'liter',
+          ),
+        ],
+        steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Boil.')],
+        imageUrl: 'https://example.com/recipe.jpg',
+        imageStoragePath: null,
+      );
+
+      expect(
+        errors,
+        contains(
+          'Image URL and image storage path must both be provided or both be empty.',
+        ),
+      );
+    });
   });
 }

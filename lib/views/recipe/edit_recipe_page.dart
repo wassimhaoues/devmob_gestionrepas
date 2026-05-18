@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/ingredient.dart';
+import '../../models/recipe.dart';
 import '../../models/recipe_category.dart';
 import '../../models/recipe_step.dart';
 import '../../providers/recipe_provider.dart';
@@ -29,6 +32,7 @@ class _EditRecipePageState extends State<EditRecipePage> {
   List<String> _submitErrors = const <String>[];
   String? _editingRecipeId;
   bool _initialized = false;
+  bool _isBootstrapping = true;
 
   @override
   void dispose() {
@@ -55,40 +59,19 @@ class _EditRecipePageState extends State<EditRecipePage> {
 
     final recipeId = _resolveRecipeId(context);
     if (recipeId == null) {
+      _isBootstrapping = false;
       return;
     }
 
-    final recipe = context.read<RecipeProvider>().recipeById(recipeId);
-    if (recipe == null) {
+    final provider = context.read<RecipeProvider>();
+    final cachedRecipe = provider.recipeById(recipeId);
+    if (cachedRecipe != null) {
+      _hydrateForm(cachedRecipe);
+      _isBootstrapping = false;
       return;
     }
 
-    _editingRecipeId = recipe.id;
-    _titleController.text = recipe.title;
-    _descriptionController.text = recipe.description;
-    _imageUrlController.text = recipe.imageUrl ?? '';
-    _imageStoragePathController.text = recipe.imageStoragePath ?? '';
-    _selectedCategory = recipe.category;
-
-    for (final ingredient in recipe.ingredients) {
-      _ingredients.add(
-        _IngredientDraft(
-          name: ingredient.displayName,
-          quantity: ingredient.quantity.toString(),
-          unit: ingredient.unit,
-        ),
-      );
-    }
-    if (_ingredients.isEmpty) {
-      _ingredients.add(_IngredientDraft());
-    }
-
-    for (final step in recipe.steps) {
-      _steps.add(TextEditingController(text: step.text));
-    }
-    if (_steps.isEmpty) {
-      _steps.add(TextEditingController());
-    }
+    unawaited(_loadRecipe(provider, recipeId));
   }
 
   @override
@@ -97,10 +80,33 @@ class _EditRecipePageState extends State<EditRecipePage> {
     final isLoading = provider.isLoading;
     final recipeId = _editingRecipeId;
 
+    if (_isBootstrapping) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Edit Recipe')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     if (recipeId == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Edit Recipe')),
-        body: const Center(child: Text('Recipe not found.')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(provider.errorMessage ?? 'Recipe not found.'),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () =>
+                      unawaited(_retryLoad(context.read<RecipeProvider>())),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -263,6 +269,73 @@ class _EditRecipePageState extends State<EditRecipePage> {
       return widget.recipeId!.trim();
     }
     return null;
+  }
+
+  Future<void> _retryLoad(RecipeProvider provider) async {
+    final recipeId = _resolveRecipeId(context);
+    if (recipeId == null) {
+      return;
+    }
+
+    setState(() => _isBootstrapping = true);
+    await _loadRecipe(provider, recipeId, forceRefresh: true);
+  }
+
+  Future<void> _loadRecipe(
+    RecipeProvider provider,
+    String recipeId, {
+    bool forceRefresh = false,
+  }) async {
+    final recipe = await provider.loadRecipeById(
+      recipeId,
+      forceRefresh: forceRefresh,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    if (recipe != null) {
+      _hydrateForm(recipe);
+    }
+
+    setState(() => _isBootstrapping = false);
+  }
+
+  void _hydrateForm(Recipe recipe) {
+    _editingRecipeId = recipe.id;
+    _titleController.text = recipe.title;
+    _descriptionController.text = recipe.description;
+    _imageUrlController.text = recipe.imageUrl ?? '';
+    _imageStoragePathController.text = recipe.imageStoragePath ?? '';
+    _selectedCategory = recipe.category;
+
+    for (final ingredient in _ingredients) {
+      ingredient.dispose();
+    }
+    _ingredients.clear();
+    for (final ingredient in recipe.ingredients) {
+      _ingredients.add(
+        _IngredientDraft(
+          name: ingredient.displayName,
+          quantity: ingredient.quantity.toString(),
+          unit: ingredient.unit,
+        ),
+      );
+    }
+    if (_ingredients.isEmpty) {
+      _ingredients.add(_IngredientDraft());
+    }
+
+    for (final step in _steps) {
+      step.dispose();
+    }
+    _steps.clear();
+    for (final step in recipe.steps) {
+      _steps.add(TextEditingController(text: step.text));
+    }
+    if (_steps.isEmpty) {
+      _steps.add(TextEditingController());
+    }
   }
 
   void _addIngredient() {

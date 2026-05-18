@@ -141,6 +141,8 @@ class RecipeValidators {
     required List<Ingredient> ingredients,
     required List<RecipeStep> steps,
     String? description,
+    String? imageUrl,
+    String? imageStoragePath,
   }) {
     final errors = <String>[];
 
@@ -161,6 +163,31 @@ class RecipeValidators {
 
     errors.addAll(validateIngredients(ingredients));
     errors.addAll(validateSteps(steps));
+
+    final imageMetadataError = validateImageMetadata(
+      imageUrl: imageUrl,
+      imageStoragePath: imageStoragePath,
+    );
+    if (imageMetadataError != null) {
+      errors.add(imageMetadataError);
+    }
+
     return errors;
+  }
+
+  static String? validateImageMetadata({
+    required String? imageUrl,
+    required String? imageStoragePath,
+  }) {
+    final normalizedImageUrl = (imageUrl ?? '').trim();
+    final normalizedImageStoragePath = (imageStoragePath ?? '').trim();
+    final hasImageUrl = normalizedImageUrl.isNotEmpty;
+    final hasImageStoragePath = normalizedImageStoragePath.isNotEmpty;
+
+    if (hasImageUrl != hasImageStoragePath) {
+      return 'Image URL and image storage path must both be provided or both be empty.';
+    }
+
+    return null;
   }
 }

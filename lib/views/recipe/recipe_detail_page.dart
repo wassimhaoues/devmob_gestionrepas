@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,21 +9,70 @@ import 'edit_recipe_page.dart';
 
 const String recipeDetailRoute = '/recipes/detail';
 
-class RecipeDetailPage extends StatelessWidget {
+class RecipeDetailPage extends StatefulWidget {
   const RecipeDetailPage({super.key, this.recipeId});
 
   final String? recipeId;
 
   @override
+  State<RecipeDetailPage> createState() => _RecipeDetailPageState();
+}
+
+class _RecipeDetailPageState extends State<RecipeDetailPage> {
+  String? _resolvedId;
+  bool _didScheduleLoad = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didScheduleLoad) {
+      return;
+    }
+
+    _resolvedId = _resolveRecipeId(context);
+    _didScheduleLoad = true;
+    final recipeId = _resolvedId;
+    if (recipeId == null) {
+      return;
+    }
+
+    final provider = context.read<RecipeProvider>();
+    if (provider.recipeById(recipeId) != null) {
+      provider.loadRecipeById(recipeId);
+      return;
+    }
+
+    unawaited(provider.loadRecipeById(recipeId));
+  }
+
+  @override
   Widget build(BuildContext context) {
     final provider = context.watch<RecipeProvider>();
-    final resolvedId = _resolveRecipeId(context);
+    final resolvedId = _resolvedId ?? _resolveRecipeId(context);
     final recipe = resolvedId == null ? null : provider.recipeById(resolvedId);
+
+    if (resolvedId == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Recipe Detail')),
+        body: const Center(child: Text('Recipe id is missing.')),
+      );
+    }
+
+    if (recipe == null && provider.isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Recipe Detail')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     if (recipe == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Recipe Detail')),
-        body: const Center(child: Text('Recipe not found.')),
+        body: _MissingRecipeState(
+          message: provider.errorMessage ?? 'Recipe not found.',
+          onRetry: () =>
+              provider.loadRecipeById(resolvedId, forceRefresh: true),
+        ),
       );
     }
 
@@ -69,16 +120,14 @@ class RecipeDetailPage extends StatelessWidget {
     if (routeArgs is String && routeArgs.trim().isNotEmpty) {
       return routeArgs.trim();
     }
-    if (recipeId != null && recipeId!.trim().isNotEmpty) {
-      return recipeId!.trim();
+    if (widget.recipeId != null && widget.recipeId!.trim().isNotEmpty) {
+      return widget.recipeId!.trim();
     }
     return null;
   }
 
   Future<void> _openEditPage(BuildContext context, String id) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => EditRecipePage(recipeId: id)),
-    );
+    await Navigator.of(context).pushNamed(editRecipeRoute, arguments: id);
   }
 
   Future<void> _confirmDelete(BuildContext context, String id) async {
@@ -124,6 +173,35 @@ class RecipeDetailPage extends StatelessWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(errorMessage)));
+  }
+}
+
+class _MissingRecipeState extends StatelessWidget {
+  const _MissingRecipeState({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<Recipe?> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.menu_book_outlined, size: 48),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => unawaited(onRetry()),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

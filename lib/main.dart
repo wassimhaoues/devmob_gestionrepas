@@ -17,6 +17,10 @@ import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
 import 'views/auth/verify_email_page.dart';
 import 'views/dashboard/dashboard_page.dart';
+import 'views/recipe/add_recipe_page.dart';
+import 'views/recipe/edit_recipe_page.dart';
+import 'views/recipe/recipe_detail_page.dart';
+import 'views/recipe/recipe_list_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +68,10 @@ class MyApp extends StatelessWidget {
         forgotPasswordRoute: (_) => const ForgotPasswordPage(),
         verifyEmailRoute: (_) => const VerifyEmailPage(),
         dashboardRoute: (_) => const DashboardPage(),
+        recipeListRoute: (_) => const RecipeListPage(),
+        addRecipeRoute: (_) => const AddRecipePage(),
+        recipeDetailRoute: (_) => const RecipeDetailPage(),
+        editRecipeRoute: (_) => const EditRecipePage(),
       },
       home: const AuthGate(),
     );

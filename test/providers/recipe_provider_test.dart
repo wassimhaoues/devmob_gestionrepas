@@ -4,7 +4,9 @@ import 'package:devmob_gestionrepas/models/ingredient.dart';
 import 'package:devmob_gestionrepas/models/recipe.dart';
 import 'package:devmob_gestionrepas/models/recipe_category.dart';
 import 'package:devmob_gestionrepas/models/recipe_step.dart';
+import 'package:devmob_gestionrepas/models/recipe_failure.dart';
 import 'package:devmob_gestionrepas/providers/recipe_provider.dart';
+import 'package:devmob_gestionrepas/services/recipe/recipe_exception.dart';
 import 'package:devmob_gestionrepas/services/recipe/recipe_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -100,6 +102,45 @@ void main() {
     provider.dispose();
   });
 
+  test(
+    'updateRecipe clears image metadata when both fields are blank',
+    () async {
+      final provider = RecipeProvider(recipeService: recipeService);
+      await provider.startWatching(uid: 'user-1');
+      recipeService.emitRecipes(<Recipe>[
+        _sampleRecipe(id: 'recipe-1', ownerUid: 'user-1').copyWith(
+          imageUrl: 'https://example.com/recipe.jpg',
+          imageStoragePath: 'recipes/recipe-1.jpg',
+        ),
+      ]);
+      await _flushAsync();
+
+      final errors = await provider.updateRecipe(
+        recipeId: 'recipe-1',
+        title: 'Sample',
+        description: 'Updated',
+        category: RecipeCategory.breakfast,
+        ingredients: const <Ingredient>[
+          Ingredient(
+            displayName: 'Eggs',
+            canonicalName: 'egg',
+            quantity: 2,
+            unit: 'piece',
+          ),
+        ],
+        steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
+        imageUrl: '',
+        imageStoragePath: '',
+      );
+
+      expect(errors, isEmpty);
+      expect(recipeService.lastUpdatedRecipe, isNotNull);
+      expect(recipeService.lastUpdatedRecipe!.imageUrl, isNull);
+      expect(recipeService.lastUpdatedRecipe!.imageStoragePath, isNull);
+      provider.dispose();
+    },
+  );
+
   test('toggleFavorite delegates to service', () async {
     final provider = RecipeProvider(recipeService: recipeService);
     await provider.startWatching(uid: 'user-1');
@@ -112,6 +153,46 @@ void main() {
     expect(result, isTrue);
     expect(recipeService.lastFavoriteRecipeId, 'recipe-99');
     expect(recipeService.lastFavoriteValue, isTrue);
+    provider.dispose();
+  });
+
+  test('loadRecipeById fetches and caches uncached recipe detail', () async {
+    final provider = RecipeProvider(recipeService: recipeService);
+    await provider.startWatching(uid: 'user-1');
+
+    recipeService.fetchRecipeByIdResult = _sampleRecipe(
+      id: 'r-42',
+      ownerUid: 'user-1',
+    );
+
+    final recipe = await provider.loadRecipeById('r-42');
+
+    expect(recipe, isNotNull);
+    expect(recipeService.lastFetchedRecipeId, 'r-42');
+    expect(provider.selectedRecipeId, 'r-42');
+    expect(provider.recipeById('r-42'), isNotNull);
+    provider.dispose();
+  });
+
+  test('loadRecipeById surfaces mapped recipe errors', () async {
+    final provider = RecipeProvider(recipeService: recipeService);
+    await provider.startWatching(uid: 'user-1');
+
+    recipeService.fetchRecipeByIdError = const RecipeException(
+      RecipeFailure(
+        code: RecipeFailureCode.permissionDenied,
+        message: 'You do not have permission to access this recipe.',
+      ),
+    );
+
+    final recipe = await provider.loadRecipeById('r-42', forceRefresh: true);
+
+    expect(recipe, isNull);
+    expect(provider.status, RecipeProviderStatus.error);
+    expect(
+      provider.errorMessage,
+      'You do not have permission to access this recipe.',
+    );
     provider.dispose();
   });
 }
@@ -143,6 +224,9 @@ class _FakeRecipeService implements RecipeService {
   bool? lastFavoriteValue;
 
   List<Recipe> fetchResult = const <Recipe>[];
+  Recipe? fetchRecipeByIdResult;
+  Object? fetchRecipeByIdError;
+  String? lastFetchedRecipeId;
 
   @override
   Stream<List<Recipe>> watchRecipes({
@@ -170,7 +254,11 @@ class _FakeRecipeService implements RecipeService {
     required String uid,
     required String recipeId,
   }) async {
-    return null;
+    lastFetchedRecipeId = recipeId;
+    if (fetchRecipeByIdError != null) {
+      throw fetchRecipeByIdError!;
+    }
+    return fetchRecipeByIdResult;
   }
 
   @override
