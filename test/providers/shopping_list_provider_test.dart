@@ -5,9 +5,9 @@ import 'package:devmob_gestionrepas/models/recipe_category.dart';
 import 'package:devmob_gestionrepas/models/shopping_list.dart';
 import 'package:devmob_gestionrepas/models/shopping_list_item.dart';
 import 'package:devmob_gestionrepas/providers/shopping_list_provider.dart';
+import 'package:devmob_gestionrepas/services/recipe/recipe_service.dart';
 import 'package:devmob_gestionrepas/services/shopping/local_shopping_list_state_service.dart';
 import 'package:devmob_gestionrepas/services/shopping/shopping_list_generator_service.dart';
-import 'package:devmob_gestionrepas/services/recipe/recipe_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -26,31 +26,46 @@ void main() {
     );
   }
 
-  test('loadForWeek applies stored checked state', () async {
+  test('loadForWeek surfaces persisted completed items separately', () async {
     final provider = buildProvider();
     final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
-    generatorService.shoppingList = ShoppingList(
-      ownerUid: 'user-1',
-      weekStartDate: week.startDate,
-      generatedAt: DateTime(2026, 5, 19),
-      items: const <ShoppingListItem>[
+    generatorService.shoppingList = _shoppingList(
+      week: week,
+      items: <ShoppingListItem>[
         ShoppingListItem(
           id: 'tomato__piece',
+          ingredientKey: 'tomato__piece',
           canonicalName: 'tomato',
           displayName: 'Tomatoes',
           totalQuantity: 5,
           unit: 'piece',
-          isChecked: false,
+          status: ShoppingListItemStatus.pending,
+          origin: ShoppingListItemOrigin.generated,
+          isNewBatch: false,
           sourceRecipeIds: <String>['recipe-1'],
+          createdAt: DateTime(2026, 5, 19),
         ),
       ],
     );
-    localStateService.checkedStates = <String, CheckedShoppingItemState>{
-      'tomato__piece': const CheckedShoppingItemState(
-        itemId: 'tomato__piece',
-        totalQuantity: 5,
-      ),
-    };
+    localStateService.state = ShoppingListLocalState(
+      completedItems: <ShoppingListItem>[
+        ShoppingListItem(
+          id: 'completed_batch',
+          ingredientKey: 'tomato__piece',
+          canonicalName: 'tomato',
+          displayName: 'Tomatoes',
+          totalQuantity: 2,
+          unit: 'piece',
+          status: ShoppingListItemStatus.completed,
+          origin: ShoppingListItemOrigin.generated,
+          isNewBatch: false,
+          sourceRecipeIds: <String>['recipe-1'],
+          createdAt: DateTime(2026, 5, 19),
+          completedAt: DateTime(2026, 5, 19, 12),
+        ),
+      ],
+      separatePendingItems: <ShoppingListItem>[],
+    );
 
     await provider.loadForWeek(
       uid: 'user-1',
@@ -59,185 +74,217 @@ void main() {
     );
 
     expect(provider.status, ShoppingListProviderStatus.ready);
-    expect(provider.items.single.isChecked, isTrue);
-  });
-
-  test('toggleItem persists the updated checked quantity snapshot', () async {
-    final provider = buildProvider();
-    final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
-    generatorService.shoppingList = ShoppingList(
-      ownerUid: 'user-1',
-      weekStartDate: week.startDate,
-      generatedAt: DateTime(2026, 5, 19),
-      items: const <ShoppingListItem>[
-        ShoppingListItem(
-          id: 'milk__l',
-          canonicalName: 'milk',
-          displayName: 'Milk',
-          totalQuantity: 1,
-          unit: 'L',
-          isChecked: false,
-          sourceRecipeIds: <String>['recipe-2'],
-        ),
-      ],
-    );
-
-    await provider.loadForWeek(
-      uid: 'user-1',
-      week: week,
-      entries: const <MealPlanEntry>[],
-    );
-    await provider.toggleItem('milk__l');
-
-    expect(provider.items.single.isChecked, isTrue);
-    expect(localStateService.lastWrittenStates['milk__l']?.totalQuantity, 1);
+    expect(provider.pendingItems.single.totalQuantity, 3);
+    expect(provider.completedItems.single.totalQuantity, 2);
   });
 
   test(
-    'clearCheckedItems unchecks all items and clears persisted state',
+    'completePendingItem moves a generated pending row into completed',
     () async {
       final provider = buildProvider();
       final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
-      generatorService.shoppingList = ShoppingList(
-        ownerUid: 'user-1',
-        weekStartDate: week.startDate,
-        generatedAt: DateTime(2026, 5, 19),
-        items: const <ShoppingListItem>[
+      generatorService.shoppingList = _shoppingList(
+        week: week,
+        items: <ShoppingListItem>[
           ShoppingListItem(
             id: 'milk__l',
+            ingredientKey: 'milk__l',
             canonicalName: 'milk',
             displayName: 'Milk',
             totalQuantity: 1,
             unit: 'L',
-            isChecked: false,
+            status: ShoppingListItemStatus.pending,
+            origin: ShoppingListItemOrigin.generated,
+            isNewBatch: false,
             sourceRecipeIds: <String>['recipe-2'],
+            createdAt: DateTime(2026, 5, 19),
           ),
         ],
       );
-      localStateService.checkedStates = <String, CheckedShoppingItemState>{
-        'milk__l': const CheckedShoppingItemState(
-          itemId: 'milk__l',
-          totalQuantity: 1,
-        ),
-      };
 
       await provider.loadForWeek(
         uid: 'user-1',
         week: week,
         entries: const <MealPlanEntry>[],
       );
-      await provider.clearCheckedItems();
+      await provider.completePendingItem('milk__l');
 
-      expect(provider.items.single.isChecked, isFalse);
-      expect(localStateService.checkedStates, isEmpty);
-      expect(localStateService.clearCallCount, 1);
+      expect(provider.pendingItems, isEmpty);
+      expect(provider.completedItems, hasLength(1));
+      expect(provider.completedItems.single.displayName, 'Milk');
+      expect(localStateService.lastWrittenState.completedItems, hasLength(1));
     },
   );
 
-  test('loadForWeek resets checked state when quantity has changed', () async {
-    final provider = buildProvider();
-    final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
-    generatorService.shoppingList = ShoppingList(
-      ownerUid: 'user-1',
-      weekStartDate: week.startDate,
-      generatedAt: DateTime(2026, 5, 19),
-      items: const <ShoppingListItem>[
-        ShoppingListItem(
-          id: 'olive__cup',
-          canonicalName: 'olive',
-          displayName: 'Black Olives',
-          totalQuantity: 3,
-          unit: 'cup',
-          isChecked: false,
-          sourceRecipeIds: <String>['recipe-1'],
+  test(
+    'loadForWeek creates a new pending row after prior completion',
+    () async {
+      final provider = buildProvider();
+      final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
+      generatorService.shoppingList = _shoppingList(
+        week: week,
+        items: <ShoppingListItem>[
+          ShoppingListItem(
+            id: 'olive__cup',
+            ingredientKey: 'olive__cup',
+            canonicalName: 'olive',
+            displayName: 'Black Olives',
+            totalQuantity: 3,
+            unit: 'cup',
+            status: ShoppingListItemStatus.pending,
+            origin: ShoppingListItemOrigin.generated,
+            isNewBatch: false,
+            sourceRecipeIds: <String>['recipe-1'],
+            createdAt: DateTime(2026, 5, 19),
+          ),
+        ],
+      );
+      localStateService.state = ShoppingListLocalState(
+        completedItems: <ShoppingListItem>[
+          ShoppingListItem(
+            id: 'completed_olive_batch',
+            ingredientKey: 'olive__cup',
+            canonicalName: 'olive',
+            displayName: 'Black Olives',
+            totalQuantity: 2,
+            unit: 'cup',
+            status: ShoppingListItemStatus.completed,
+            origin: ShoppingListItemOrigin.generated,
+            isNewBatch: false,
+            sourceRecipeIds: <String>['recipe-1'],
+            createdAt: DateTime(2026, 5, 18),
+            completedAt: DateTime(2026, 5, 18, 14),
+          ),
+        ],
+        separatePendingItems: <ShoppingListItem>[],
+      );
+
+      await provider.loadForWeek(
+        uid: 'user-1',
+        week: week,
+        entries: const <MealPlanEntry>[],
+      );
+
+      expect(provider.pendingItems.single.totalQuantity, 1);
+      expect(provider.pendingItems.single.isNewBatch, isTrue);
+      expect(provider.completedItems.single.totalQuantity, 2);
+    },
+  );
+
+  test(
+    'reopenCompletedItem with merge leaves one merged pending row',
+    () async {
+      final provider = buildProvider();
+      final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
+      generatorService.shoppingList = _shoppingList(
+        week: week,
+        items: <ShoppingListItem>[
+          ShoppingListItem(
+            id: 'olive__cup',
+            ingredientKey: 'olive__cup',
+            canonicalName: 'olive',
+            displayName: 'Black Olives',
+            totalQuantity: 3,
+            unit: 'cup',
+            status: ShoppingListItemStatus.pending,
+            origin: ShoppingListItemOrigin.generated,
+            isNewBatch: false,
+            sourceRecipeIds: <String>['recipe-1'],
+            createdAt: DateTime(2026, 5, 19),
+          ),
+        ],
+      );
+      localStateService.state = ShoppingListLocalState(
+        completedItems: <ShoppingListItem>[
+          ShoppingListItem(
+            id: 'completed_olive_batch',
+            ingredientKey: 'olive__cup',
+            canonicalName: 'olive',
+            displayName: 'Black Olives',
+            totalQuantity: 2,
+            unit: 'cup',
+            status: ShoppingListItemStatus.completed,
+            origin: ShoppingListItemOrigin.generated,
+            isNewBatch: false,
+            sourceRecipeIds: <String>['recipe-1'],
+            createdAt: DateTime(2026, 5, 18),
+            completedAt: DateTime(2026, 5, 18, 14),
+          ),
+        ],
+        separatePendingItems: <ShoppingListItem>[],
+      );
+
+      await provider.loadForWeek(uid: 'user-1', week: week, entries: const []);
+      await provider.reopenCompletedItem(
+        itemId: 'completed_olive_batch',
+        mode: CompletedItemReopenMode.mergeIntoPending,
+      );
+
+      expect(provider.completedItems, isEmpty);
+      expect(provider.pendingItems, hasLength(1));
+      expect(provider.pendingItems.single.totalQuantity, 3);
+    },
+  );
+
+  test(
+    'reopenCompletedItem with separate keeps a distinct reopened batch',
+    () async {
+      final provider = buildProvider();
+      final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
+      generatorService.shoppingList = _shoppingList(
+        week: week,
+        items: <ShoppingListItem>[
+          ShoppingListItem(
+            id: 'olive__cup',
+            ingredientKey: 'olive__cup',
+            canonicalName: 'olive',
+            displayName: 'Black Olives',
+            totalQuantity: 3,
+            unit: 'cup',
+            status: ShoppingListItemStatus.pending,
+            origin: ShoppingListItemOrigin.generated,
+            isNewBatch: false,
+            sourceRecipeIds: <String>['recipe-1'],
+            createdAt: DateTime(2026, 5, 19),
+          ),
+        ],
+      );
+      localStateService.state = ShoppingListLocalState(
+        completedItems: <ShoppingListItem>[
+          ShoppingListItem(
+            id: 'completed_olive_batch',
+            ingredientKey: 'olive__cup',
+            canonicalName: 'olive',
+            displayName: 'Black Olives',
+            totalQuantity: 2,
+            unit: 'cup',
+            status: ShoppingListItemStatus.completed,
+            origin: ShoppingListItemOrigin.generated,
+            isNewBatch: false,
+            sourceRecipeIds: <String>['recipe-1'],
+            createdAt: DateTime(2026, 5, 18),
+            completedAt: DateTime(2026, 5, 18, 14),
+          ),
+        ],
+        separatePendingItems: <ShoppingListItem>[],
+      );
+
+      await provider.loadForWeek(uid: 'user-1', week: week, entries: const []);
+      await provider.reopenCompletedItem(
+        itemId: 'completed_olive_batch',
+        mode: CompletedItemReopenMode.reopenSeparately,
+      );
+
+      expect(provider.completedItems, isEmpty);
+      expect(provider.pendingItems, hasLength(2));
+      expect(
+        provider.pendingItems.any(
+          (item) => item.origin == ShoppingListItemOrigin.reopened,
         ),
-      ],
-    );
-    localStateService.checkedStates = <String, CheckedShoppingItemState>{
-      'olive__cup': const CheckedShoppingItemState(
-        itemId: 'olive__cup',
-        totalQuantity: 2,
-      ),
-    };
-
-    await provider.loadForWeek(
-      uid: 'user-1',
-      week: week,
-      entries: const <MealPlanEntry>[],
-    );
-
-    expect(provider.items.single.isChecked, isFalse);
-  });
-
-  test('loadForWeek keeps checked state when quantity is unchanged', () async {
-    final provider = buildProvider();
-    final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
-    generatorService.shoppingList = ShoppingList(
-      ownerUid: 'user-1',
-      weekStartDate: week.startDate,
-      generatedAt: DateTime(2026, 5, 19),
-      items: const <ShoppingListItem>[
-        ShoppingListItem(
-          id: 'olive__cup',
-          canonicalName: 'olive',
-          displayName: 'Black Olives',
-          totalQuantity: 2,
-          unit: 'cup',
-          isChecked: false,
-          sourceRecipeIds: <String>['recipe-1'],
-        ),
-      ],
-    );
-    localStateService.checkedStates = <String, CheckedShoppingItemState>{
-      'olive__cup': const CheckedShoppingItemState(
-        itemId: 'olive__cup',
-        totalQuantity: 2,
-      ),
-    };
-
-    await provider.loadForWeek(
-      uid: 'user-1',
-      week: week,
-      entries: const <MealPlanEntry>[],
-    );
-
-    expect(provider.items.single.isChecked, isTrue);
-  });
-
-  test('reset clears provider state back to initial', () async {
-    final provider = buildProvider();
-    final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
-    generatorService.shoppingList = ShoppingList(
-      ownerUid: 'user-1',
-      weekStartDate: week.startDate,
-      generatedAt: DateTime(2026, 5, 19),
-      items: const <ShoppingListItem>[
-        ShoppingListItem(
-          id: 'milk__l',
-          canonicalName: 'milk',
-          displayName: 'Milk',
-          totalQuantity: 1,
-          unit: 'L',
-          isChecked: false,
-          sourceRecipeIds: <String>['recipe-2'],
-        ),
-      ],
-    );
-
-    await provider.loadForWeek(
-      uid: 'user-1',
-      week: week,
-      entries: const <MealPlanEntry>[],
-    );
-
-    provider.reset();
-
-    expect(provider.status, ShoppingListProviderStatus.initial);
-    expect(provider.uid, isNull);
-    expect(provider.activeWeek, isNull);
-    expect(provider.items, isEmpty);
-    expect(provider.errorMessage, isNull);
-  });
+        isTrue,
+      );
+    },
+  );
 
   test('loadForWeek exposes error state when generation fails', () async {
     final provider = buildProvider();
@@ -254,41 +301,17 @@ void main() {
     expect(provider.items, isEmpty);
     expect(provider.errorMessage, 'Unable to generate the shopping list.');
   });
+}
 
-  test(
-    'toggleItem keeps ui state and exposes message when persistence fails',
-    () async {
-      final provider = buildProvider();
-      final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
-      generatorService.shoppingList = ShoppingList(
-        ownerUid: 'user-1',
-        weekStartDate: week.startDate,
-        generatedAt: DateTime(2026, 5, 19),
-        items: const <ShoppingListItem>[
-          ShoppingListItem(
-            id: 'milk__l',
-            canonicalName: 'milk',
-            displayName: 'Milk',
-            totalQuantity: 1,
-            unit: 'L',
-            isChecked: false,
-            sourceRecipeIds: <String>['recipe-2'],
-          ),
-        ],
-      );
-      localStateService.throwOnWrite = true;
-
-      await provider.loadForWeek(
-        uid: 'user-1',
-        week: week,
-        entries: const <MealPlanEntry>[],
-      );
-      await provider.toggleItem('milk__l');
-
-      expect(provider.items.single.isChecked, isTrue);
-      expect(provider.status, ShoppingListProviderStatus.ready);
-      expect(provider.errorMessage, 'Unable to save shopping checklist state.');
-    },
+ShoppingList _shoppingList({
+  required MealPlanWeek week,
+  required List<ShoppingListItem> items,
+}) {
+  return ShoppingList(
+    ownerUid: 'user-1',
+    weekStartDate: week.startDate,
+    generatedAt: DateTime(2026, 5, 19),
+    items: items,
   );
 }
 
@@ -314,41 +337,33 @@ class _FakeShoppingListGeneratorService extends ShoppingListGeneratorService {
 
 class _FakeLocalShoppingListStateService
     implements LocalShoppingListStateService {
-  Map<String, CheckedShoppingItemState> checkedStates =
-      <String, CheckedShoppingItemState>{};
-  Map<String, CheckedShoppingItemState> lastWrittenStates =
-      <String, CheckedShoppingItemState>{};
-  int clearCallCount = 0;
-  bool throwOnWrite = false;
+  ShoppingListLocalState state = ShoppingListLocalState.empty;
+  ShoppingListLocalState lastWrittenState = ShoppingListLocalState.empty;
 
   @override
-  Future<void> clearCheckedItemIds({
+  Future<void> clearState({
     required String uid,
     required DateTime weekStartDate,
   }) async {
-    clearCallCount += 1;
-    checkedStates = <String, CheckedShoppingItemState>{};
+    state = ShoppingListLocalState.empty;
   }
 
   @override
-  Future<Map<String, CheckedShoppingItemState>> readCheckedItemStates({
+  Future<ShoppingListLocalState> readState({
     required String uid,
     required DateTime weekStartDate,
   }) async {
-    return checkedStates;
+    return state;
   }
 
   @override
-  Future<void> writeCheckedItemStates({
+  Future<void> writeState({
     required String uid,
     required DateTime weekStartDate,
-    required Map<String, CheckedShoppingItemState> itemStates,
+    required ShoppingListLocalState state,
   }) async {
-    if (throwOnWrite) {
-      throw Exception('write failed');
-    }
-    lastWrittenStates = itemStates;
-    checkedStates = itemStates;
+    lastWrittenState = state;
+    this.state = state;
   }
 }
 

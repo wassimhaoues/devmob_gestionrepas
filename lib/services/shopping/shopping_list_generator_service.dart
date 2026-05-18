@@ -80,12 +80,16 @@ class ShoppingListGeneratorService {
             .map(
               (item) => ShoppingListItem(
                 id: item.id,
+                ingredientKey: item.id,
                 canonicalName: item.canonicalName,
                 displayName: item.displayName,
                 totalQuantity: item.totalQuantity,
                 unit: item.unit,
-                isChecked: false,
+                status: ShoppingListItemStatus.pending,
+                origin: ShoppingListItemOrigin.generated,
+                isNewBatch: false,
                 sourceRecipeIds: item.sourceRecipeIds,
+                createdAt: DateTime.now(),
               ),
             )
             .toList()
