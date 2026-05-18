@@ -21,10 +21,12 @@ import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
 import 'views/auth/verify_email_page.dart';
 import 'views/dashboard/dashboard_page.dart';
+import 'views/mealplan/meal_plan_page.dart';
 import 'views/recipe/add_recipe_page.dart';
 import 'views/recipe/edit_recipe_page.dart';
 import 'views/recipe/recipe_detail_page.dart';
 import 'views/recipe/recipe_list_page.dart';
+import 'views/shopping/shopping_list_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,6 +89,8 @@ class MyApp extends StatelessWidget {
           pageTitle: 'Favorite Recipes',
           favoritesOnlyView: true,
         ),
+        mealPlanRoute: (_) => const MealPlanPage(),
+        shoppingListRoute: (_) => const ShoppingListPage(),
         addRecipeRoute: (_) => const AddRecipePage(),
         recipeDetailRoute: (_) => const RecipeDetailPage(),
         editRecipeRoute: (_) => const EditRecipePage(),
