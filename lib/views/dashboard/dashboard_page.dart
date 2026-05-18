@@ -8,6 +8,7 @@ import '../../models/recipe.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_plan_provider.dart';
 import '../../providers/recipe_provider.dart';
+import '../../providers/shopping_list_provider.dart';
 import '../mealplan/meal_plan_page.dart';
 import '../recipe/add_recipe_page.dart';
 import '../recipe/recipe_list_page.dart';
@@ -60,9 +61,8 @@ class _DashboardPageState extends State<DashboardPage> {
             mealPlanProvider: mealPlanProvider,
             recipeProvider: recipeProvider,
             onOpenRecipes: () => setState(() => _selectedIndex = 1),
-            onOpenFavorites: () => Navigator.of(
-              context,
-            ).pushNamed(favoriteRecipesRoute),
+            onOpenFavorites: () =>
+                Navigator.of(context).pushNamed(favoriteRecipesRoute),
             onOpenMealPlan: () => setState(() => _selectedIndex = 2),
             onOpenShoppingList: () => setState(() => _selectedIndex = 3),
           ),
@@ -70,9 +70,8 @@ class _DashboardPageState extends State<DashboardPage> {
             recipeProvider: recipeProvider,
             onBrowseAllRecipes: () =>
                 Navigator.of(context).pushNamed(recipeListRoute),
-            onOpenFavorites: () => Navigator.of(
-              context,
-            ).pushNamed(favoriteRecipesRoute),
+            onOpenFavorites: () =>
+                Navigator.of(context).pushNamed(favoriteRecipesRoute),
             onAddRecipe: () => Navigator.of(context).pushNamed(addRecipeRoute),
           ),
           const MealPlanPage(),
@@ -119,10 +118,12 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _signOut() async {
     final recipeProvider = context.read<RecipeProvider>();
     final mealPlanProvider = context.read<MealPlanProvider>();
+    final shoppingListProvider = context.read<ShoppingListProvider>();
     final authProvider = context.read<AuthProvider>();
 
     await recipeProvider.stopWatching();
     await mealPlanProvider.stopWatching();
+    shoppingListProvider.reset();
     await authProvider.signOut();
   }
 }
@@ -427,10 +428,7 @@ class _StatCard extends StatelessWidget {
             Text(label, style: Theme.of(context).textTheme.titleSmall),
             if (helperText != null) ...[
               const SizedBox(height: 4),
-              Text(
-                helperText!,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(helperText!, style: Theme.of(context).textTheme.bodySmall),
             ],
           ],
         ),
@@ -551,7 +549,10 @@ class _RecentRecipeTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(recipe.title, style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                recipe.title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 4),
               Text(
                 recipe.category.label,

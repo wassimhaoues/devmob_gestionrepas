@@ -3,7 +3,7 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 2: not started
+- Phase 3: not started
 
 Completed in this phase:
 - Phase 1: foundation layer completed
@@ -11,14 +11,19 @@ Completed in this phase:
 - added generation and local checked-state services
 - added `ShoppingListProvider` and app-level dependency wiring
 - added `shared_preferences` dependency
+- Phase 2: shopping page integration completed
+- replaced the static placeholder with a real weekly shopping list page
+- synced shopping generation with `MealPlanProvider.activeWeek` and `entries`
+- added checklist UI, refresh flow, week navigation, and empty/error states
+- reset shopping state on sign-out
+- added widget coverage for empty and generated shopping states
 
 Still missing:
-- real `ShoppingListPage` implementation (current file is a static placeholder)
-- all tests
+- remaining hardening and broader test coverage
 
 Implementation phases:
 - [x] Phase 1: foundation layer
-- [ ] Phase 2: real shopping list page and meal-plan integration
+- [x] Phase 2: real shopping list page and meal-plan integration
 - [ ] Phase 3: tests, hardening, and polish
 
 ## 1. Why This Module Exists
@@ -50,13 +55,7 @@ Already present:
 - user-scoped Firestore structure and auth isolation
 
 Still missing:
-- `ShoppingList` and `ShoppingListItem` models
-- `ShoppingListGeneratorService` (aggregation and deduplication)
-- `LocalShoppingListStateService` (checked-state persistence)
-- `ShoppingListProvider`
-- real `ShoppingListPage` implementation (current file is a static placeholder)
-- `shared_preferences` package (not yet in pubspec.yaml — must be added)
-- all tests
+- broader test coverage and final hardening
 
 ## 3. Scope
 
