@@ -1,26 +1,58 @@
 # Shopping List Module Plan
 
+## Progress Tracker
+
+Current phase:
+- Phase 1: not started
+
+Completed in this phase:
+- nothing yet
+
+Still missing:
+- `ShoppingList` and `ShoppingListItem` models
+- `ShoppingListGeneratorService` (aggregation and deduplication)
+- `LocalShoppingListStateService` (checked-state persistence)
+- `ShoppingListProvider`
+- real `ShoppingListPage` implementation (current file is a static placeholder)
+- `shared_preferences` package (not yet in pubspec.yaml)
+- all tests
+
 ## 1. Why This Module Exists
 
 The PDF explicitly requires automatic shopping-list generation from planned
-meals. This module is still fully missing from the repo.
-
-It is the downstream feature that proves the recipes and meal-planning modules
-work together as one product.
+meals. It is the downstream feature that proves the recipes and meal-planning
+modules work together as one product.
 
 ## 2. Current Repo Status
 
 Already present:
-- recipes with normalized ingredients
-- deterministic ingredient canonical names
-- user-scoped Firestore structure
+- `Recipe` model with a typed `List<Ingredient> ingredients` field
+- `Ingredient` model with `displayName`, `canonicalName`, `quantity`, `unit`
+  — all four fields the aggregation logic needs are already normalized at
+  recipe creation time by `IngredientNormalizer`
+- `RecipeService.fetchRecipeById(uid, recipeId)` — resolves a single recipe
+  by ID, which is the key call for the generation pipeline
+- `MealPlanEntry` model carrying `recipeId` as the source-of-truth link to a
+  recipe
+- `MealPlanService.fetchEntries(uid, startDate, endDate)` — fetches all
+  planned entries for a date range
+- `MealPlanProvider` with `activeWeek` (`MealPlanWeek`) and `entries`
+  (`List<MealPlanEntry>`) — week context and planned entries are live and
+  ready to consume
+- `MealPlanWeek` model with `startDate` and `endDate` — week boundaries
+  already defined
+- `ShoppingListPage` stub at `lib/views/shopping/shopping_list_page.dart`
+  with route constant `shoppingListRoute` — page shell and route slot exist
+- user-scoped Firestore structure and auth isolation
 
 Still missing:
-- shopping list domain models
-- shopping list generation logic
-- aggregation and deduplication rules
-- shopping list screens
-- persistence strategy for checklist state
+- `ShoppingList` and `ShoppingListItem` models
+- `ShoppingListGeneratorService` (aggregation and deduplication)
+- `LocalShoppingListStateService` (checked-state persistence)
+- `ShoppingListProvider`
+- real `ShoppingListPage` implementation (current file is a static placeholder)
+- `shared_preferences` package (not yet in pubspec.yaml — must be added)
+- all tests
 
 ## 3. Scope
 
@@ -51,15 +83,19 @@ Strong implied requirements for usability:
 ## 5. Generation Strategy
 
 Primary source:
-- planned meal entries for a selected week
+- planned meal entries for the selected week from `MealPlanProvider.entries`
+  (or via `MealPlanService.fetchEntries` if triggered independently)
 
 Generation pipeline:
-1. load the selected week of meal-plan entries
-2. resolve their linked recipes
-3. flatten all ingredients from those recipes
-4. normalize by persisted `canonicalName`
-5. merge compatible items
-6. produce a user-facing shopping list model
+1. read `MealPlanProvider.entries` for the active week (already live in memory)
+2. collect the unique `recipeId` values from those entries
+3. resolve each recipe with `RecipeService.fetchRecipeById(uid, recipeId)`
+   — duplicates are deduplicated by ID before fetching
+4. flatten `Recipe.ingredients` from all resolved recipes into a single list
+5. `Ingredient.canonicalName` is already normalized (written by
+   `IngredientNormalizer` at recipe creation) — no further normalization needed
+6. merge by `(canonicalName, unit)` and sum `quantity`
+7. produce `List<ShoppingListItem>` for the provider to expose
 
 ## 6. Aggregation Rules
 
@@ -108,13 +144,17 @@ Potential `ShoppingList` fields:
 The PDF mentions local persistence as an interesting technical aspect.
 
 Recommended first approach:
-- generate list content from backend meal-plan data
-- persist checklist state locally with `shared_preferences` or `hive`
+- generate list content from backend meal-plan data (recipes + entries already
+  in Firestore)
+- persist only the checked/unchecked state locally with `shared_preferences`
 
 Why:
-- checked/unchecked state is UI-centric
+- checked state is UI-centric and user-specific
 - faster to ship for a single-user school project
-- avoids unnecessary backend complexity
+- avoids unnecessary backend complexity for ephemeral UI state
+
+Action required before implementation:
+- add `shared_preferences` to `pubspec.yaml` (not present yet)
 
 Potential local persistence key:
 - `shopping_check_state_{uid}_{weekStartIso}`
@@ -162,12 +202,24 @@ Helpful extras if time allows:
 
 ## 12. Integration With Meal Planning
 
-This module depends directly on meal-planning data.
+This module depends directly on meal-planning data. All required hooks are
+already in place — no changes to the meal plan module are needed.
 
-Required integration:
-- selected week in shopping list should align with selected week in meal plan
-- shopping list should regenerate when planned meals change
-- empty meal plan should produce a friendly empty shopping state
+Concrete integration points:
+- `MealPlanProvider.activeWeek` — use its `startDate`/`endDate` as the
+  generation window so the shopping list always reflects the same week the
+  user is viewing in the planner
+- `MealPlanProvider.entries` — the live list of `MealPlanEntry` objects
+  (each carrying `recipeId`) is the direct input to the generation pipeline
+- `RecipeService.fetchRecipeById` — resolves each entry's `recipeId` into
+  a full `Recipe` with its `ingredients` list
+- `ShoppingListPage` stub already registered in the app shell with route
+  `shoppingListRoute` — no routing changes needed
+
+Required behavior:
+- shopping list week should follow `MealPlanProvider.activeWeek`
+- list should regenerate when the user refreshes or the week changes
+- empty meal plan should produce a clear empty state (no entries → no items)
 
 ## 13. Testing Strategy
 
