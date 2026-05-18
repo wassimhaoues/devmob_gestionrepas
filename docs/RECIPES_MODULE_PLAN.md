@@ -12,8 +12,12 @@ In scope:
 - Category assignment (`breakfast`, `lunch`, `dinner`, `dessert`)
 - Embedded ingredients with canonical normalization
 - Preparation steps
+- Optional recipe photo support
 - Optional image metadata fields
 - Favorite toggle (`isFavorite: bool`)
+- Favorites quick access from recipes UI
+- Recipe module visual mockup deliverables required by project specification
+- Secure recipe photo upload backed by Firebase Storage
 
 Out of scope:
 - Meal planning
@@ -101,6 +105,8 @@ Recipe document fields:
 - `steps`: array of step maps
 - `imageUrl`: string or null
 - `imageStoragePath`: string or null
+- `imageMimeType`: string or null
+- `imageSizeBytes`: int or null
 - `createdAt`: timestamp
 - `updatedAt`: timestamp
 
@@ -119,6 +125,11 @@ Notes:
 - `canonicalName` is persisted at write time for deterministic downstream usage.
 - UI can still display localized labels (for example French) mapped from the
   English enum values.
+- Recipe photo remains optional, but when used it must be backed by an actual
+  pick/upload/display flow rather than metadata-only manual text input.
+- Uploaded recipe photos are stored in Firebase Storage under a user-scoped
+  path, and the Firestore recipe document keeps only metadata and the public
+  access reference needed by the app.
 
 ## 5. Ingredient Canonical Normalization Strategy
 
@@ -171,6 +182,68 @@ Step-level rules:
 Image metadata rules:
 - Both `imageUrl` and `imageStoragePath` are optional.
 - If one is present, maintain consistency contract in update flow.
+- The recipe form must support actual image selection for the optional photo
+  requirement from the project PDF.
+- Uploaded images must be previewable from recipe list/detail/edit flows when
+  available.
+- Recipe image uploads must reject files larger than `10 MB`.
+- Preferred stored output format is `webp` after client-side compression when
+  supported by the chosen implementation path.
+- If `webp` conversion is not feasible on the selected Flutter stack, the
+  fallback is to compress and downscale the image before upload while keeping a
+  safe web/mobile-friendly format such as `jpeg`.
+
+### 6.2 Recipe Photo Upload Strategy
+
+Storage path strategy:
+- `users/{uid}/recipes/{recipeId}/cover.webp`
+- or `users/{uid}/recipes/{recipeId}/{generatedFileName}.webp`
+
+Client-side upload pipeline:
+1. Pick image from device.
+2. Reject immediately if the selected file size is greater than `10 MB`.
+3. Decode and recompress locally before upload.
+4. Convert to `webp` if supported by the selected image processing package.
+5. Downscale oversized dimensions to a reasonable maximum for recipe usage.
+6. Upload only the processed output.
+7. Persist resulting `imageUrl`, `imageStoragePath`, `imageMimeType`, and
+   `imageSizeBytes` on the recipe document.
+
+Compression goals:
+- Optimize for recipe thumbnails and detail views, not original-quality archive
+  storage.
+- Prefer a practical upper bound such as `1600px` on the longest edge unless
+  later UI needs justify a different limit.
+- Target a noticeably smaller processed file than the original whenever
+  possible.
+
+Deletion/update behavior:
+- Replacing a recipe photo should delete or overwrite the previous file in
+  Firebase Storage to avoid orphaned uploads.
+- Deleting a recipe should also delete its stored recipe photo when present.
+
+Accepted file types:
+- Allow common image inputs such as `jpg`, `jpeg`, `png`, `webp`, `heic`
+  only if the chosen processing path can decode them safely.
+- Reject unsupported or ambiguous file types before upload.
+
+## 6.1 PDF-Driven Recipe Additions
+
+The project specification PDF adds the following recipe-only expectations on top
+of the initial module plan:
+
+- Add recipe with: name, description, ingredients, steps, optional photo.
+- Category grouping for recipes (`petit déjeuner`, `déjeuner`, `dîner`,
+  `dessert`, etc.), which maps cleanly to the locked enum values in English.
+- Favorite recipes with:
+  - an "add to favorites" interaction
+  - quick access to favorite recipes from the recipes experience
+- Visual mockup coverage must include:
+  - recipe list page
+  - add/edit recipe page
+- Bonus alignment if the implemented UI stays faithful to the approved mockup.
+- Optional photo support should now be treated as real upload support because
+  Firebase Storage is enabled for the project.
 
 ## 7. State Management Strategy
 
@@ -190,6 +263,11 @@ Planned provider state slices:
 - `status` (`idle`, `loading`, `mutating`, `error`)
 - `error` message/failure
 - Filters (`category`, `favoritesOnly`)
+- Favorite quick-access state can be satisfied by a dedicated favorites entry
+  point, explicit favorites section, or an equivalent first-class UI shortcut
+  beyond a hidden implementation detail.
+- Photo upload state should include enough status to represent picking,
+  processing/compressing, uploading, replacing, and deleting image flows.
 
 ## 8. Edge Cases and Failure Scenarios
 
@@ -203,6 +281,15 @@ Planned provider state slices:
 - Normalization collisions (different display names same canonical result).
 - Excessively large ingredient/step arrays increasing document size.
 - Image metadata stale after a failed upload/delete workflow.
+- Recipe image upload succeeds but persisted metadata becomes inconsistent.
+- Missing quick-access path makes favorites technically present but weak against
+  the PDF wording.
+- Image selected by the user exceeds `10 MB`.
+- Image conversion/compression fails on-device before upload.
+- Replacement upload succeeds but old Firebase Storage object is left orphaned.
+- Recipe delete succeeds but associated Firebase Storage object remains.
+- Unsupported image format is selected.
+- Malicious or malformed file is renamed with an image extension.
 
 ## 9. Scalability Considerations (Without Overengineering)
 
@@ -212,6 +299,45 @@ Planned provider state slices:
 - Sort list by `updatedAt desc` for predictable UX.
 - Add pagination (`limit` + cursor) only when list size justifies it.
 - Keep normalization deterministic so future shopping aggregation can reuse it.
+- Keep photo handling optional so the recipe document stays usable even when the
+  user skips image upload.
+- Keep processed image files small enough for fast mobile loading and modest
+  Firebase Storage usage.
+
+## 9.1 Security Requirements For Recipe Images
+
+Security expectations:
+- Firebase Storage rules must restrict recipe image access by authenticated user
+  ownership, matching the same user-scoped model as Firestore recipe documents.
+- The app must validate file size, file extension, and MIME type before upload.
+- The app must avoid uploading arbitrary files renamed as images when basic type
+  checks fail.
+- The upload pipeline should decode and re-encode supported image files before
+  upload so the stored output is a normalized image artifact rather than the raw
+  original file blob.
+- Unsupported, unreadable, or malformed files must be rejected client-side.
+
+Security boundaries:
+- Client-side checks reduce risk but do not replace backend security rules.
+- Storage rules should constrain path ownership and disallow writes outside the
+  current user recipe image scope.
+- This school project will not implement enterprise malware scanning unless a
+  later requirement explicitly demands external scanning infrastructure.
+- For this project, the practical anti-malware posture is:
+  - accept only supported image formats
+  - decode/re-encode before upload
+  - reject oversized or malformed files
+  - enforce authenticated owner-only storage paths
+
+## 10.1 Branch Naming Convention
+
+All future implementation branches created for this project must start with:
+
+- `feature/`
+
+Examples:
+- `feature/recipes-photo-upload`
+- `feature/mealplan-calendar`
 
 ## 10. Incremental Commit Roadmap (Minimum 10)
 
@@ -230,6 +356,15 @@ Planned provider state slices:
 13. `chore(firebase): add firestore rules for users/{uid}/recipes/{recipeId}`
 14. `chore(firebase): add indexes for category/favorite/sort queries`
 15. `test(recipes-provider): add provider behavior tests (loading/error/mutations)`
+16. `feat(recipes-photo): add actual optional recipe photo pick/upload flow`
+17. `feat(recipes-photo): display recipe photo in list/detail/edit experiences`
+18. `feat(recipes-favorites): add first-class quick access to favorite recipes`
+19. `docs(recipes): attach or reference required recipe UI mockups from spec`
+20. `feat(recipes-photo): reject source images above 10 MB before upload`
+21. `feat(recipes-photo): compress and convert recipe photos to webp or fallback compressed format`
+22. `chore(storage): add Firebase Storage rules for user-scoped recipe images`
+23. `feat(recipes-photo): delete or replace orphaned recipe image files safely`
+24. `test(recipes-photo): cover validation and processed upload flow`
 
 ## 11. Definition of Ready (Before Implementation Starts)
 
