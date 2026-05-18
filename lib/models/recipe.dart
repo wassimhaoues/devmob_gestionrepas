@@ -16,6 +16,8 @@ class Recipe {
     required this.updatedAt,
     this.imageUrl,
     this.imageStoragePath,
+    this.imageMimeType,
+    this.imageSizeBytes,
   });
 
   final String id;
@@ -28,6 +30,8 @@ class Recipe {
   final List<RecipeStep> steps;
   final String? imageUrl;
   final String? imageStoragePath;
+  final String? imageMimeType;
+  final int? imageSizeBytes;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -42,6 +46,8 @@ class Recipe {
     List<RecipeStep>? steps,
     String? imageUrl,
     String? imageStoragePath,
+    String? imageMimeType,
+    int? imageSizeBytes,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -56,6 +62,8 @@ class Recipe {
       steps: steps ?? this.steps,
       imageUrl: imageUrl ?? this.imageUrl,
       imageStoragePath: imageStoragePath ?? this.imageStoragePath,
+      imageMimeType: imageMimeType ?? this.imageMimeType,
+      imageSizeBytes: imageSizeBytes ?? this.imageSizeBytes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -79,6 +87,8 @@ class Recipe {
       steps: _readSteps(data['steps']),
       imageUrl: (data['imageUrl'] as String?)?.trim(),
       imageStoragePath: (data['imageStoragePath'] as String?)?.trim(),
+      imageMimeType: (data['imageMimeType'] as String?)?.trim(),
+      imageSizeBytes: _readInt(data['imageSizeBytes']),
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );
@@ -96,6 +106,8 @@ class Recipe {
       'steps': steps.map((step) => step.toMap()).toList(),
       'imageUrl': imageUrl,
       'imageStoragePath': imageStoragePath,
+      'imageMimeType': imageMimeType,
+      'imageSizeBytes': imageSizeBytes,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
@@ -143,5 +155,21 @@ class Recipe {
       return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
     }
     return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static int? _readInt(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
   }
 }

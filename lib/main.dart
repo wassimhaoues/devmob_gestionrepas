@@ -10,6 +10,8 @@ import 'services/auth/firebase_auth_service.dart';
 import 'services/auth/firestore_user_profile_service.dart';
 import 'services/auth/user_profile_service.dart';
 import 'services/recipe/firestore_recipe_service.dart';
+import 'services/recipe/firebase_recipe_image_storage_service.dart';
+import 'services/recipe/recipe_image_storage_service.dart';
 import 'services/recipe/recipe_service.dart';
 import 'views/auth/auth_gate.dart';
 import 'views/auth/forgot_password_page.dart';
@@ -34,6 +36,9 @@ void main() async {
           create: (_) => FirestoreUserProfileService(),
         ),
         Provider<RecipeService>(create: (_) => FirestoreRecipeService()),
+        Provider<RecipeImageStorageService>(
+          create: (_) => FirebaseRecipeImageStorageService(),
+        ),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) => AuthProvider(
             authService: context.read<AuthService>(),
