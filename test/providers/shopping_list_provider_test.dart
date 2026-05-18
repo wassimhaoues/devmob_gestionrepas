@@ -45,7 +45,12 @@ void main() {
         ),
       ],
     );
-    localStateService.checkedIds = <String>{'tomato__piece'};
+    localStateService.checkedStates = <String, CheckedShoppingItemState>{
+      'tomato__piece': const CheckedShoppingItemState(
+        itemId: 'tomato__piece',
+        totalQuantity: 5,
+      ),
+    };
 
     await provider.loadForWeek(
       uid: 'user-1',
@@ -57,7 +62,7 @@ void main() {
     expect(provider.items.single.isChecked, isTrue);
   });
 
-  test('toggleItem persists the updated checked ids', () async {
+  test('toggleItem persists the updated checked quantity snapshot', () async {
     final provider = buildProvider();
     final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
     generatorService.shoppingList = ShoppingList(
@@ -85,7 +90,7 @@ void main() {
     await provider.toggleItem('milk__l');
 
     expect(provider.items.single.isChecked, isTrue);
-    expect(localStateService.lastWrittenIds, <String>{'milk__l'});
+    expect(localStateService.lastWrittenStates['milk__l']?.totalQuantity, 1);
   });
 
   test(
@@ -109,7 +114,12 @@ void main() {
           ),
         ],
       );
-      localStateService.checkedIds = <String>{'milk__l'};
+      localStateService.checkedStates = <String, CheckedShoppingItemState>{
+        'milk__l': const CheckedShoppingItemState(
+          itemId: 'milk__l',
+          totalQuantity: 1,
+        ),
+      };
 
       await provider.loadForWeek(
         uid: 'user-1',
@@ -119,10 +129,80 @@ void main() {
       await provider.clearCheckedItems();
 
       expect(provider.items.single.isChecked, isFalse);
-      expect(localStateService.checkedIds, isEmpty);
+      expect(localStateService.checkedStates, isEmpty);
       expect(localStateService.clearCallCount, 1);
     },
   );
+
+  test('loadForWeek resets checked state when quantity has changed', () async {
+    final provider = buildProvider();
+    final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
+    generatorService.shoppingList = ShoppingList(
+      ownerUid: 'user-1',
+      weekStartDate: week.startDate,
+      generatedAt: DateTime(2026, 5, 19),
+      items: const <ShoppingListItem>[
+        ShoppingListItem(
+          id: 'olive__cup',
+          canonicalName: 'olive',
+          displayName: 'Black Olives',
+          totalQuantity: 3,
+          unit: 'cup',
+          isChecked: false,
+          sourceRecipeIds: <String>['recipe-1'],
+        ),
+      ],
+    );
+    localStateService.checkedStates = <String, CheckedShoppingItemState>{
+      'olive__cup': const CheckedShoppingItemState(
+        itemId: 'olive__cup',
+        totalQuantity: 2,
+      ),
+    };
+
+    await provider.loadForWeek(
+      uid: 'user-1',
+      week: week,
+      entries: const <MealPlanEntry>[],
+    );
+
+    expect(provider.items.single.isChecked, isFalse);
+  });
+
+  test('loadForWeek keeps checked state when quantity is unchanged', () async {
+    final provider = buildProvider();
+    final week = MealPlanWeek.fromAnchor(DateTime(2026, 5, 20));
+    generatorService.shoppingList = ShoppingList(
+      ownerUid: 'user-1',
+      weekStartDate: week.startDate,
+      generatedAt: DateTime(2026, 5, 19),
+      items: const <ShoppingListItem>[
+        ShoppingListItem(
+          id: 'olive__cup',
+          canonicalName: 'olive',
+          displayName: 'Black Olives',
+          totalQuantity: 2,
+          unit: 'cup',
+          isChecked: false,
+          sourceRecipeIds: <String>['recipe-1'],
+        ),
+      ],
+    );
+    localStateService.checkedStates = <String, CheckedShoppingItemState>{
+      'olive__cup': const CheckedShoppingItemState(
+        itemId: 'olive__cup',
+        totalQuantity: 2,
+      ),
+    };
+
+    await provider.loadForWeek(
+      uid: 'user-1',
+      week: week,
+      entries: const <MealPlanEntry>[],
+    );
+
+    expect(provider.items.single.isChecked, isTrue);
+  });
 
   test('reset clears provider state back to initial', () async {
     final provider = buildProvider();
@@ -234,8 +314,10 @@ class _FakeShoppingListGeneratorService extends ShoppingListGeneratorService {
 
 class _FakeLocalShoppingListStateService
     implements LocalShoppingListStateService {
-  Set<String> checkedIds = <String>{};
-  Set<String>? lastWrittenIds;
+  Map<String, CheckedShoppingItemState> checkedStates =
+      <String, CheckedShoppingItemState>{};
+  Map<String, CheckedShoppingItemState> lastWrittenStates =
+      <String, CheckedShoppingItemState>{};
   int clearCallCount = 0;
   bool throwOnWrite = false;
 
@@ -245,28 +327,28 @@ class _FakeLocalShoppingListStateService
     required DateTime weekStartDate,
   }) async {
     clearCallCount += 1;
-    checkedIds = <String>{};
+    checkedStates = <String, CheckedShoppingItemState>{};
   }
 
   @override
-  Future<Set<String>> readCheckedItemIds({
+  Future<Map<String, CheckedShoppingItemState>> readCheckedItemStates({
     required String uid,
     required DateTime weekStartDate,
   }) async {
-    return checkedIds;
+    return checkedStates;
   }
 
   @override
-  Future<void> writeCheckedItemIds({
+  Future<void> writeCheckedItemStates({
     required String uid,
     required DateTime weekStartDate,
-    required Set<String> itemIds,
+    required Map<String, CheckedShoppingItemState> itemStates,
   }) async {
     if (throwOnWrite) {
       throw Exception('write failed');
     }
-    lastWrittenIds = itemIds;
-    checkedIds = itemIds;
+    lastWrittenStates = itemStates;
+    checkedStates = itemStates;
   }
 }
 
