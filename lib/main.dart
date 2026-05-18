@@ -83,6 +83,10 @@ class MyApp extends StatelessWidget {
         verifyEmailRoute: (_) => const VerifyEmailPage(),
         dashboardRoute: (_) => const DashboardPage(),
         recipeListRoute: (_) => const RecipeListPage(),
+        favoriteRecipesRoute: (_) => const RecipeListPage(
+          pageTitle: 'Favorite Recipes',
+          favoritesOnlyView: true,
+        ),
         addRecipeRoute: (_) => const AddRecipePage(),
         recipeDetailRoute: (_) => const RecipeDetailPage(),
         editRecipeRoute: (_) => const EditRecipePage(),
