@@ -140,13 +140,21 @@ void main() {
 
     expect(find.text('Tomatoes'), findsOneWidget);
     expect(find.text('5 piece'), findsOneWidget);
-    expect(find.text('Used in 1 planned recipe'), findsOneWidget);
+    expect(find.text('Tap when added to cart'), findsOneWidget);
 
-    await tester.tap(find.byType(CheckboxListTile));
+    await tester.tap(find.byType(Checkbox).first);
     await tester.pumpAndSettle();
 
     expect(shoppingProvider.items.single.isChecked, isTrue);
     expect(localStateService.checkedIds, <String>{'tomato__piece'});
+    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('Hide completed'), findsOneWidget);
+
+    await tester.tap(find.text('Hide completed'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Everything is checked off'), findsOneWidget);
+    expect(find.text('Tomatoes'), findsNothing);
 
     shoppingProvider.dispose();
     mealPlanProvider.dispose();
