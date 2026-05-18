@@ -3,7 +3,7 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 3: not started
+- Phase 3: completed
 
 Completed in this phase:
 - Phase 1: foundation layer completed
@@ -17,14 +17,19 @@ Completed in this phase:
 - added checklist UI, refresh flow, week navigation, and empty/error states
 - reset shopping state on sign-out
 - added widget coverage for empty and generated shopping states
+- Phase 3: hardening and verification completed
+- added `shared_preferences` service tests for read, write, clear, and isolation
+- added provider tests for clear, reset, generation failure, and persistence failure
+- hardened checklist persistence so local-save failures do not crash the UI
+- verified the full repository test suite passes with the shopping module integrated
 
 Still missing:
-- remaining hardening and broader test coverage
+- nothing for this module phase
 
 Implementation phases:
 - [x] Phase 1: foundation layer
 - [x] Phase 2: real shopping list page and meal-plan integration
-- [ ] Phase 3: tests, hardening, and polish
+- [x] Phase 3: tests, hardening, and polish
 
 ## 1. Why This Module Exists
 
@@ -55,7 +60,7 @@ Already present:
 - user-scoped Firestore structure and auth isolation
 
 Still missing:
-- broader test coverage and final hardening
+- no known gaps inside the planned shopping-list scope
 
 ## 3. Scope
 

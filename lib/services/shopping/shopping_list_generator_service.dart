@@ -29,9 +29,17 @@ class ShoppingListGeneratorService {
             _recipeService.fetchRecipeById(uid: uid, recipeId: recipeId),
       ),
     );
+    final recipesById = <String, Recipe>{
+      for (final recipe in recipes.whereType<Recipe>()) recipe.id: recipe,
+    };
 
     final itemsByKey = <String, _ShoppingAggregation>{};
-    for (final recipe in recipes.whereType<Recipe>()) {
+    for (final entry in entries) {
+      final recipe = recipesById[entry.recipeId.trim()];
+      if (recipe == null) {
+        continue;
+      }
+
       for (final ingredient in recipe.ingredients) {
         final canonicalName = ingredient.canonicalName.trim();
         final unit = ingredient.unit.trim();
