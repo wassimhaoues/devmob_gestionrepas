@@ -19,9 +19,9 @@ Completed in this phase:
 - remove/replace assignment interactions from the week view
 - empty-week guidance in the week view
 - widget coverage for core week and assignment screens
-
-Still missing:
-- richer calendar interaction polish
+- compact week day strip with today highlight, entry-count dots, and day selection
+- single-day focused schedule view (selected day filters the slot list)
+- removed stale developer phase-note card from the UI
 
 ## 1. Why This Module Exists
 
