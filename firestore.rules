@@ -15,6 +15,10 @@ service cloud.firestore {
       match /recipes/{recipeId} {
         allow read, write: if isOwner(userId);
       }
+
+      match /mealPlanEntries/{entryId} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }
