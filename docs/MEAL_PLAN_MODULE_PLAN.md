@@ -3,7 +3,7 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 3: assignment flow
+- Phase 4: hardening and widget coverage
 
 Completed in this phase:
 - meal-plan domain models
@@ -17,9 +17,10 @@ Completed in this phase:
 - dedicated recipe assignment page for meal slots
 - independent recipe loading for assignment flow
 - remove/replace assignment interactions from the week view
+- empty-week guidance in the week view
+- widget coverage for core week and assignment screens
 
 Still missing:
-- meal-plan widget/provider tests
 - richer calendar interaction polish
 
 ## 1. Why This Module Exists
