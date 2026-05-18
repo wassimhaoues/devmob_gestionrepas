@@ -1,8 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/ingredient.dart';
 import '../../models/recipe_category.dart';
+import '../../models/recipe_image_selection.dart';
 import '../../models/recipe_step.dart';
 import '../../providers/recipe_provider.dart';
 
@@ -18,8 +23,6 @@ class AddRecipePage extends StatefulWidget {
 class _AddRecipePageState extends State<AddRecipePage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _imageUrlController = TextEditingController();
-  final _imageStoragePathController = TextEditingController();
 
   RecipeCategory? _selectedCategory = RecipeCategory.breakfast;
   final List<_IngredientDraft> _ingredients = <_IngredientDraft>[
@@ -29,13 +32,12 @@ class _AddRecipePageState extends State<AddRecipePage> {
     TextEditingController(),
   ];
   List<String> _submitErrors = const <String>[];
+  RecipeImageSelection? _selectedImage;
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _imageUrlController.dispose();
-    _imageStoragePathController.dispose();
     for (final ingredient in _ingredients) {
       ingredient.dispose();
     }
@@ -69,8 +71,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
       category: _selectedCategory,
       ingredients: ingredients,
       steps: steps,
-      imageUrl: _imageUrlController.text,
-      imageStoragePath: _imageStoragePathController.text,
+      imageSelection: _selectedImage,
     );
 
     if (!mounted) {
@@ -166,18 +167,14 @@ class _AddRecipePageState extends State<AddRecipePage> {
           ),
           const SizedBox(height: 12),
           _SectionCard(
-            title: 'Optional Image Metadata',
+            title: 'Optional Recipe Photo',
             children: [
-              TextField(
-                controller: _imageUrlController,
-                decoration: const InputDecoration(labelText: 'Image URL'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _imageStoragePathController,
-                decoration: const InputDecoration(
-                  labelText: 'Image storage path',
-                ),
+              _RecipePhotoField(
+                selectedImage: _selectedImage,
+                onPickImage: isLoading ? null : _pickImage,
+                onRemoveImage: _selectedImage == null
+                    ? null
+                    : () => setState(() => _selectedImage = null),
               ),
             ],
           ),
@@ -215,6 +212,119 @@ class _AddRecipePageState extends State<AddRecipePage> {
     final controller = _steps.removeAt(index);
     controller.dispose();
     setState(() {});
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery);
+    if (file == null || !mounted) {
+      return;
+    }
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedImage = RecipeImageSelection(
+        bytes: bytes,
+        fileName: file.name,
+        mimeType: lookupMimeType(file.name, headerBytes: bytes),
+      );
+      _submitErrors = const <String>[];
+    });
+  }
+}
+
+class _RecipePhotoField extends StatelessWidget {
+  const _RecipePhotoField({
+    required this.selectedImage,
+    required this.onPickImage,
+    required this.onRemoveImage,
+  });
+
+  final RecipeImageSelection? selectedImage;
+  final Future<void> Function()? onPickImage;
+  final VoidCallback? onRemoveImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = selectedImage == null
+        ? const _EmptyPhotoPreview()
+        : _SelectedPhotoPreview(bytes: selectedImage!.bytes);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: 180, child: preview),
+        const SizedBox(height: 12),
+        Text(
+          'Supported: JPG, PNG, WEBP. Source image must be 10 MB or smaller.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onPickImage == null ? null : () => onPickImage!(),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(
+                  selectedImage == null ? 'Choose Photo' : 'Replace Photo',
+                ),
+              ),
+            ),
+            if (onRemoveImage != null) ...[
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: onRemoveImage,
+                tooltip: 'Remove photo',
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyPhotoPreview extends StatelessWidget {
+  const _EmptyPhotoPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_outlined, size: 40),
+            SizedBox(height: 8),
+            Text('No photo selected'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedPhotoPreview extends StatelessWidget {
+  const _SelectedPhotoPreview({required this.bytes});
+
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.memory(bytes, fit: BoxFit.cover),
+    );
   }
 }
 

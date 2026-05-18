@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mime/mime.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/ingredient.dart';
 import '../../models/recipe.dart';
 import '../../models/recipe_category.dart';
+import '../../models/recipe_image_selection.dart';
 import '../../models/recipe_step.dart';
 import '../../providers/recipe_provider.dart';
 
@@ -23,8 +27,6 @@ class EditRecipePage extends StatefulWidget {
 class _EditRecipePageState extends State<EditRecipePage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _imageUrlController = TextEditingController();
-  final _imageStoragePathController = TextEditingController();
 
   RecipeCategory? _selectedCategory;
   final List<_IngredientDraft> _ingredients = <_IngredientDraft>[];
@@ -33,13 +35,14 @@ class _EditRecipePageState extends State<EditRecipePage> {
   String? _editingRecipeId;
   bool _initialized = false;
   bool _isBootstrapping = true;
+  RecipeImageSelection? _selectedImage;
+  String? _existingImageUrl;
+  bool _removeExistingImage = false;
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _imageUrlController.dispose();
-    _imageStoragePathController.dispose();
     for (final ingredient in _ingredients) {
       ingredient.dispose();
     }
@@ -186,18 +189,15 @@ class _EditRecipePageState extends State<EditRecipePage> {
           ),
           const SizedBox(height: 12),
           _SectionCard(
-            title: 'Optional Image Metadata',
+            title: 'Optional Recipe Photo',
             children: [
-              TextField(
-                controller: _imageUrlController,
-                decoration: const InputDecoration(labelText: 'Image URL'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _imageStoragePathController,
-                decoration: const InputDecoration(
-                  labelText: 'Image storage path',
-                ),
+              _EditableRecipePhotoField(
+                selectedImage: _selectedImage,
+                existingImageUrl: _removeExistingImage
+                    ? null
+                    : _existingImageUrl,
+                onPickImage: isLoading ? null : _pickImage,
+                onRemoveImage: _buildRemoveImageCallback(),
               ),
             ],
           ),
@@ -244,8 +244,8 @@ class _EditRecipePageState extends State<EditRecipePage> {
       ingredients: ingredients,
       steps: steps,
       isFavorite: existing?.isFavorite,
-      imageUrl: _imageUrlController.text,
-      imageStoragePath: _imageStoragePathController.text,
+      imageSelection: _selectedImage,
+      removeImage: _removeExistingImage,
     );
 
     if (!mounted) {
@@ -305,9 +305,10 @@ class _EditRecipePageState extends State<EditRecipePage> {
     _editingRecipeId = recipe.id;
     _titleController.text = recipe.title;
     _descriptionController.text = recipe.description;
-    _imageUrlController.text = recipe.imageUrl ?? '';
-    _imageStoragePathController.text = recipe.imageStoragePath ?? '';
     _selectedCategory = recipe.category;
+    _selectedImage = null;
+    _existingImageUrl = recipe.imageUrl;
+    _removeExistingImage = false;
 
     for (final ingredient in _ingredients) {
       ingredient.dispose();
@@ -356,6 +357,170 @@ class _EditRecipePageState extends State<EditRecipePage> {
     final controller = _steps.removeAt(index);
     controller.dispose();
     setState(() {});
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery);
+    if (file == null || !mounted) {
+      return;
+    }
+
+    final bytes = await file.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedImage = RecipeImageSelection(
+        bytes: bytes,
+        fileName: file.name,
+        mimeType: lookupMimeType(file.name, headerBytes: bytes),
+      );
+      _removeExistingImage = false;
+      _submitErrors = const <String>[];
+    });
+  }
+
+  VoidCallback? _buildRemoveImageCallback() {
+    if (_selectedImage != null) {
+      return () {
+        setState(() {
+          _selectedImage = null;
+          _submitErrors = const <String>[];
+        });
+      };
+    }
+
+    if ((_existingImageUrl ?? '').isNotEmpty && !_removeExistingImage) {
+      return () {
+        setState(() {
+          _removeExistingImage = true;
+          _submitErrors = const <String>[];
+        });
+      };
+    }
+
+    return null;
+  }
+}
+
+class _EditableRecipePhotoField extends StatelessWidget {
+  const _EditableRecipePhotoField({
+    required this.selectedImage,
+    required this.existingImageUrl,
+    required this.onPickImage,
+    required this.onRemoveImage,
+  });
+
+  final RecipeImageSelection? selectedImage;
+  final String? existingImageUrl;
+  final Future<void> Function()? onPickImage;
+  final VoidCallback? onRemoveImage;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget preview;
+    if (selectedImage != null) {
+      preview = _SelectedPhotoPreview(bytes: selectedImage!.bytes);
+    } else if ((existingImageUrl ?? '').isNotEmpty) {
+      preview = _ExistingPhotoPreview(imageUrl: existingImageUrl!);
+    } else {
+      preview = const _EmptyPhotoPreview();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: 180, child: preview),
+        const SizedBox(height: 12),
+        Text(
+          'Supported: JPG, PNG, WEBP. Source image must be 10 MB or smaller.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onPickImage == null ? null : () => onPickImage!(),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: Text(
+                  selectedImage == null && (existingImageUrl ?? '').isEmpty
+                      ? 'Choose Photo'
+                      : 'Replace Photo',
+                ),
+              ),
+            ),
+            if (onRemoveImage != null) ...[
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: onRemoveImage,
+                tooltip: 'Remove photo',
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyPhotoPreview extends StatelessWidget {
+  const _EmptyPhotoPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_outlined, size: 40),
+            SizedBox(height: 8),
+            Text('No photo selected'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExistingPhotoPreview extends StatelessWidget {
+  const _ExistingPhotoPreview({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            const _EmptyPhotoPreview(),
+      ),
+    );
+  }
+}
+
+class _SelectedPhotoPreview extends StatelessWidget {
+  const _SelectedPhotoPreview({required this.bytes});
+
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.memory(bytes, fit: BoxFit.cover),
+    );
   }
 }
 

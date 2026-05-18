@@ -1,28 +1,46 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/processed_recipe_image.dart';
 import 'package:devmob_gestionrepas/models/recipe.dart';
 import 'package:devmob_gestionrepas/models/recipe_category.dart';
-import 'package:devmob_gestionrepas/models/recipe_step.dart';
 import 'package:devmob_gestionrepas/models/recipe_failure.dart';
+import 'package:devmob_gestionrepas/models/recipe_image_upload_result.dart';
+import 'package:devmob_gestionrepas/models/recipe_image_selection.dart';
+import 'package:devmob_gestionrepas/models/recipe_step.dart';
 import 'package:devmob_gestionrepas/providers/recipe_provider.dart';
 import 'package:devmob_gestionrepas/services/recipe/recipe_exception.dart';
+import 'package:devmob_gestionrepas/services/recipe/recipe_image_processor.dart';
+import 'package:devmob_gestionrepas/services/recipe/recipe_image_storage_service.dart';
 import 'package:devmob_gestionrepas/services/recipe/recipe_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late _FakeRecipeService recipeService;
+  late _FakeRecipeImageStorageService imageStorageService;
+  late _FakeRecipeImageProcessor imageProcessor;
 
   setUp(() {
     recipeService = _FakeRecipeService();
+    imageStorageService = _FakeRecipeImageStorageService();
+    imageProcessor = _FakeRecipeImageProcessor();
   });
 
   tearDown(() async {
     await recipeService.dispose();
   });
 
+  RecipeProvider buildProvider() {
+    return RecipeProvider(
+      recipeService: recipeService,
+      recipeImageStorageService: imageStorageService,
+      recipeImageProcessor: imageProcessor,
+    );
+  }
+
   test('startWatching listens to stream and updates list state', () async {
-    final provider = RecipeProvider(recipeService: recipeService);
+    final provider = buildProvider();
 
     await provider.startWatching(uid: 'user-1');
     expect(provider.status, RecipeProviderStatus.loading);
@@ -39,7 +57,7 @@ void main() {
   });
 
   test('setCategoryFilter restarts watcher with selected category', () async {
-    final provider = RecipeProvider(recipeService: recipeService);
+    final provider = buildProvider();
 
     await provider.startWatching(uid: 'user-1');
     await provider.setCategoryFilter(RecipeCategory.dinner);
@@ -52,7 +70,7 @@ void main() {
   test(
     'createRecipe normalizes ingredient values before persistence',
     () async {
-      final provider = RecipeProvider(recipeService: recipeService);
+      final provider = buildProvider();
       await provider.startWatching(uid: 'user-1');
 
       final errors = await provider.createRecipe(
@@ -85,7 +103,7 @@ void main() {
   );
 
   test('createRecipe returns validation errors for invalid payload', () async {
-    final provider = RecipeProvider(recipeService: recipeService);
+    final provider = buildProvider();
     await provider.startWatching(uid: 'user-1');
 
     final errors = await provider.createRecipe(
@@ -102,47 +120,43 @@ void main() {
     provider.dispose();
   });
 
-  test(
-    'updateRecipe clears image metadata when both fields are blank',
-    () async {
-      final provider = RecipeProvider(recipeService: recipeService);
-      await provider.startWatching(uid: 'user-1');
-      recipeService.emitRecipes(<Recipe>[
-        _sampleRecipe(id: 'recipe-1', ownerUid: 'user-1').copyWith(
-          imageUrl: 'https://example.com/recipe.jpg',
-          imageStoragePath: 'recipes/recipe-1.jpg',
+  test('updateRecipe clears image metadata when removeImage is true', () async {
+    final provider = buildProvider();
+    await provider.startWatching(uid: 'user-1');
+    recipeService.emitRecipes(<Recipe>[
+      _sampleRecipe(id: 'recipe-1', ownerUid: 'user-1').copyWith(
+        imageUrl: 'https://example.com/recipe.jpg',
+        imageStoragePath: 'recipes/recipe-1.jpg',
+      ),
+    ]);
+    await _flushAsync();
+
+    final errors = await provider.updateRecipe(
+      recipeId: 'recipe-1',
+      title: 'Sample',
+      description: 'Updated',
+      category: RecipeCategory.breakfast,
+      ingredients: const <Ingredient>[
+        Ingredient(
+          displayName: 'Eggs',
+          canonicalName: 'egg',
+          quantity: 2,
+          unit: 'piece',
         ),
-      ]);
-      await _flushAsync();
+      ],
+      steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
+      removeImage: true,
+    );
 
-      final errors = await provider.updateRecipe(
-        recipeId: 'recipe-1',
-        title: 'Sample',
-        description: 'Updated',
-        category: RecipeCategory.breakfast,
-        ingredients: const <Ingredient>[
-          Ingredient(
-            displayName: 'Eggs',
-            canonicalName: 'egg',
-            quantity: 2,
-            unit: 'piece',
-          ),
-        ],
-        steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
-        imageUrl: '',
-        imageStoragePath: '',
-      );
-
-      expect(errors, isEmpty);
-      expect(recipeService.lastUpdatedRecipe, isNotNull);
-      expect(recipeService.lastUpdatedRecipe!.imageUrl, isNull);
-      expect(recipeService.lastUpdatedRecipe!.imageStoragePath, isNull);
-      provider.dispose();
-    },
-  );
+    expect(errors, isEmpty);
+    expect(recipeService.lastUpdatedRecipe, isNotNull);
+    expect(recipeService.lastUpdatedRecipe!.imageUrl, isNull);
+    expect(recipeService.lastUpdatedRecipe!.imageStoragePath, isNull);
+    provider.dispose();
+  });
 
   test('toggleFavorite delegates to service', () async {
-    final provider = RecipeProvider(recipeService: recipeService);
+    final provider = buildProvider();
     await provider.startWatching(uid: 'user-1');
 
     final result = await provider.toggleFavorite(
@@ -157,7 +171,7 @@ void main() {
   });
 
   test('loadRecipeById fetches and caches uncached recipe detail', () async {
-    final provider = RecipeProvider(recipeService: recipeService);
+    final provider = buildProvider();
     await provider.startWatching(uid: 'user-1');
 
     recipeService.fetchRecipeByIdResult = _sampleRecipe(
@@ -175,7 +189,7 @@ void main() {
   });
 
   test('loadRecipeById surfaces mapped recipe errors', () async {
-    final provider = RecipeProvider(recipeService: recipeService);
+    final provider = buildProvider();
     await provider.startWatching(uid: 'user-1');
 
     recipeService.fetchRecipeByIdError = const RecipeException(
@@ -193,6 +207,86 @@ void main() {
       provider.errorMessage,
       'You do not have permission to access this recipe.',
     );
+    provider.dispose();
+  });
+
+  test('createRecipe uploads processed image and persists metadata', () async {
+    final provider = buildProvider();
+    await provider.startWatching(uid: 'user-1');
+    imageProcessor.result = ProcessedRecipeImage(
+      bytes: Uint8List.fromList(const <int>[1, 2, 3]),
+      mimeType: 'image/jpeg',
+      fileName: 'recipe.jpg',
+      width: 800,
+      height: 600,
+      sourceSizeBytes: 1024,
+      outputSizeBytes: 3,
+    );
+
+    final errors = await provider.createRecipe(
+      title: 'Tomato Soup',
+      description: 'Simple soup',
+      category: RecipeCategory.lunch,
+      ingredients: const <Ingredient>[
+        Ingredient(
+          displayName: 'Tomatoes',
+          canonicalName: 'tomato',
+          quantity: 2,
+          unit: 'pieces',
+        ),
+      ],
+      steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
+      imageSelection: RecipeImageSelection(
+        bytes: Uint8List.fromList(const <int>[8, 9, 10]),
+        fileName: 'phone.png',
+        mimeType: 'image/png',
+      ),
+    );
+
+    expect(errors, isEmpty);
+    expect(imageStorageService.lastUploadRecipeId, 'new-recipe-id');
+    expect(recipeService.lastUpdatedRecipe?.imageUrl, isNotNull);
+    expect(recipeService.lastUpdatedRecipe?.imageMimeType, 'image/jpeg');
+    expect(recipeService.lastUpdatedRecipe?.imageSizeBytes, 3);
+    provider.dispose();
+  });
+
+  test('updateRecipe removes previous stored image when requested', () async {
+    final provider = buildProvider();
+    await provider.startWatching(uid: 'user-1');
+    recipeService.emitRecipes(<Recipe>[
+      _sampleRecipe(id: 'recipe-1', ownerUid: 'user-1').copyWith(
+        imageUrl: 'https://example.com/recipe.jpg',
+        imageStoragePath: 'users/user-1/recipes/recipe-1/cover_old.jpg',
+        imageMimeType: 'image/jpeg',
+        imageSizeBytes: 1200,
+      ),
+    ]);
+    await _flushAsync();
+
+    final errors = await provider.updateRecipe(
+      recipeId: 'recipe-1',
+      title: 'Sample',
+      description: 'Updated',
+      category: RecipeCategory.breakfast,
+      ingredients: const <Ingredient>[
+        Ingredient(
+          displayName: 'Eggs',
+          canonicalName: 'egg',
+          quantity: 2,
+          unit: 'piece',
+        ),
+      ],
+      steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
+      removeImage: true,
+    );
+
+    expect(errors, isEmpty);
+    expect(
+      imageStorageService.deletedPaths,
+      contains('users/user-1/recipes/recipe-1/cover_old.jpg'),
+    );
+    expect(recipeService.lastUpdatedRecipe?.imageUrl, isNull);
     provider.dispose();
   });
 }
@@ -306,6 +400,72 @@ class _FakeRecipeService implements RecipeService {
 
   Future<void> dispose() async {
     await _controller.close();
+  }
+}
+
+class _FakeRecipeImageStorageService implements RecipeImageStorageService {
+  String? lastUploadUid;
+  String? lastUploadRecipeId;
+  String? lastUploadMimeType;
+  String? lastUploadFileName;
+  Uint8List? lastUploadBytes;
+  final List<String> deletedPaths = <String>[];
+
+  @override
+  String buildStoragePath({
+    required String uid,
+    required String recipeId,
+    String fileName = 'cover.webp',
+  }) {
+    return 'users/$uid/recipes/$recipeId/$fileName';
+  }
+
+  @override
+  Future<void> deleteRecipeImage(String storagePath) async {
+    deletedPaths.add(storagePath);
+  }
+
+  @override
+  Future<RecipeImageUploadResult> uploadRecipeImage({
+    required String uid,
+    required String recipeId,
+    required Uint8List bytes,
+    required String mimeType,
+    String fileName = 'cover.webp',
+  }) async {
+    lastUploadUid = uid;
+    lastUploadRecipeId = recipeId;
+    lastUploadMimeType = mimeType;
+    lastUploadFileName = fileName;
+    lastUploadBytes = bytes;
+    return RecipeImageUploadResult(
+      downloadUrl: 'https://example.com/$recipeId.jpg',
+      storagePath: 'users/$uid/recipes/$recipeId/$fileName',
+      mimeType: mimeType,
+      sizeBytes: bytes.lengthInBytes,
+    );
+  }
+}
+
+class _FakeRecipeImageProcessor implements RecipeImageProcessor {
+  ProcessedRecipeImage? result;
+
+  @override
+  Future<ProcessedRecipeImage> processImage({
+    required Uint8List bytes,
+    required String originalFileName,
+    String? mimeType,
+  }) async {
+    return result ??
+        ProcessedRecipeImage(
+          bytes: bytes,
+          mimeType: mimeType ?? 'image/jpeg',
+          fileName: originalFileName,
+          width: 100,
+          height: 100,
+          sourceSizeBytes: bytes.lengthInBytes,
+          outputSizeBytes: bytes.lengthInBytes,
+        );
   }
 }
 
