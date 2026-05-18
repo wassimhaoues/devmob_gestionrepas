@@ -3,7 +3,7 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 2: provider and week view
+- Phase 3: assignment flow
 
 Completed in this phase:
 - meal-plan domain models
@@ -14,9 +14,11 @@ Completed in this phase:
 - `MealPlanProvider` with week loading, week switching, and slot mutation methods
 - live meal-plan page wired to provider state
 - app-shell meal summary connected to live provider data
+- dedicated recipe assignment page for meal slots
+- independent recipe loading for assignment flow
+- remove/replace assignment interactions from the week view
 
 Still missing:
-- recipe assignment flow
 - meal-plan widget/provider tests
 - richer calendar interaction polish
 

@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/meal_plan_assignment_args.dart';
 import '../../models/meal_plan_entry.dart';
 import '../../models/meal_plan_week.dart';
 import '../../models/meal_slot_type.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_plan_provider.dart';
+import 'assign_recipe_page.dart';
 
 const String mealPlanRoute = '/meal-plan';
 
@@ -200,6 +202,7 @@ class _DayScheduleSection extends StatelessWidget {
         const SizedBox(height: 10),
         for (final slot in MealSlotType.values) ...[
           _MealSlotRow(
+            day: day,
             slotType: slot,
             entry: provider.entryFor(date: day, slotType: slot),
           ),
@@ -211,8 +214,13 @@ class _DayScheduleSection extends StatelessWidget {
 }
 
 class _MealSlotRow extends StatelessWidget {
-  const _MealSlotRow({required this.slotType, required this.entry});
+  const _MealSlotRow({
+    required this.day,
+    required this.slotType,
+    required this.entry,
+  });
 
+  final DateTime day;
   final MealSlotType slotType;
   final MealPlanEntry? entry;
 
@@ -221,52 +229,124 @@ class _MealSlotRow extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: colorScheme.primaryContainer,
-            foregroundColor: colorScheme.primary,
-            child: Icon(_iconForSlot(slotType), size: 18),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 88,
-            child: Text(slotType.label),
-          ),
-          Expanded(
-            child: entry == null
-                ? Text(
-                    'No recipe assigned yet',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry!.recipeTitle,
-                        style: Theme.of(context).textTheme.titleSmall,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _openAssignment(context),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: colorScheme.primaryContainer,
+                foregroundColor: colorScheme.primary,
+                child: Icon(_iconForSlot(slotType), size: 18),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 88,
+                child: Text(slotType.label),
+              ),
+              Expanded(
+                child: entry == null
+                    ? Text(
+                        'Tap to assign a recipe',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry!.recipeTitle,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          if (entry!.recipeCategory != null)
+                            Text(
+                              entry!.recipeCategory!.label,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
                       ),
-                      if (entry!.recipeCategory != null)
-                        Text(
-                          entry!.recipeCategory!.label,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                    ],
-                  ),
+              ),
+              if (entry == null)
+                const Icon(Icons.add_circle_outline)
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Remove assignment',
+                      onPressed: () => _confirmRemove(context),
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+            ],
           ),
-          if (entry == null)
-            const Icon(Icons.add_circle_outline)
-          else
-            const Icon(Icons.check_circle_outline),
-        ],
+        ),
       ),
     );
+  }
+
+  Future<void> _openAssignment(BuildContext context) async {
+    await Navigator.of(context).pushNamed(
+      assignRecipeRoute,
+      arguments: MealPlanAssignmentArgs(
+        date: entry?.date ?? day,
+        slotType: slotType,
+      ),
+    );
+  }
+
+  Future<void> _confirmRemove(BuildContext context) async {
+    final existingEntry = entry;
+    if (existingEntry == null) {
+      return;
+    }
+
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Remove assignment?'),
+          content: Text(
+            'Remove ${existingEntry.recipeTitle} from ${slotType.label}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Remove'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldRemove != true || !context.mounted) {
+      return;
+    }
+
+    final success = await context.read<MealPlanProvider>().removeEntryForSlot(
+      date: existingEntry.date,
+      slotType: slotType,
+    );
+    if (!context.mounted || success) {
+      return;
+    }
+
+    final message =
+        context.read<MealPlanProvider>().errorMessage ??
+        'Unable to remove meal slot assignment.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

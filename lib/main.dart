@@ -24,6 +24,7 @@ import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
 import 'views/auth/verify_email_page.dart';
 import 'views/dashboard/dashboard_page.dart';
+import 'views/mealplan/assign_recipe_page.dart';
 import 'views/mealplan/meal_plan_page.dart';
 import 'views/recipe/add_recipe_page.dart';
 import 'views/recipe/edit_recipe_page.dart';
@@ -99,6 +100,7 @@ class MyApp extends StatelessWidget {
           favoritesOnlyView: true,
         ),
         mealPlanRoute: (_) => const MealPlanPage(),
+        assignRecipeRoute: (_) => const AssignRecipePage(),
         shoppingListRoute: (_) => const ShoppingListPage(),
         addRecipeRoute: (_) => const AddRecipePage(),
         recipeDetailRoute: (_) => const RecipeDetailPage(),
