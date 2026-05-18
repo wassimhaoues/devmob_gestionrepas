@@ -3,7 +3,7 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 1: foundation
+- Phase 2: provider and week view
 
 Completed in this phase:
 - meal-plan domain models
@@ -11,13 +11,14 @@ Completed in this phase:
 - Firestore service contract and initial Firestore implementation
 - Firestore rules and index definitions for meal-plan entries
 - foundation unit tests for models and error mapping
+- `MealPlanProvider` with week loading, week switching, and slot mutation methods
+- live meal-plan page wired to provider state
+- app-shell meal summary connected to live provider data
 
 Still missing:
-- `MealPlanProvider`
-- calendar UI and week loading flow
 - recipe assignment flow
-- dashboard live integration
 - meal-plan widget/provider tests
+- richer calendar interaction polish
 
 ## 1. Why This Module Exists
 

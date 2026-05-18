@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/app_user.dart';
 import '../../models/recipe.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/meal_plan_provider.dart';
 import '../../providers/recipe_provider.dart';
 import '../mealplan/meal_plan_page.dart';
 import '../recipe/add_recipe_page.dart';
@@ -37,6 +38,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _syncRecipeWatcher(context);
 
     final authProvider = context.watch<AuthProvider>();
+    final mealPlanProvider = context.watch<MealPlanProvider>();
     final recipeProvider = context.watch<RecipeProvider>();
 
     return Scaffold(
@@ -55,6 +57,7 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           _HomeTab(
             user: authProvider.currentUser,
+            mealPlanProvider: mealPlanProvider,
             recipeProvider: recipeProvider,
             onOpenRecipes: () => setState(() => _selectedIndex = 1),
             onOpenFavorites: () => Navigator.of(
@@ -115,9 +118,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _signOut() async {
     final recipeProvider = context.read<RecipeProvider>();
+    final mealPlanProvider = context.read<MealPlanProvider>();
     final authProvider = context.read<AuthProvider>();
 
     await recipeProvider.stopWatching();
+    await mealPlanProvider.stopWatching();
     await authProvider.signOut();
   }
 }
@@ -125,6 +130,7 @@ class _DashboardPageState extends State<DashboardPage> {
 class _HomeTab extends StatelessWidget {
   const _HomeTab({
     required this.user,
+    required this.mealPlanProvider,
     required this.recipeProvider,
     required this.onOpenRecipes,
     required this.onOpenFavorites,
@@ -133,6 +139,7 @@ class _HomeTab extends StatelessWidget {
   });
 
   final AppUser? user;
+  final MealPlanProvider mealPlanProvider;
   final RecipeProvider recipeProvider;
   final VoidCallback onOpenRecipes;
   final VoidCallback onOpenFavorites;
@@ -146,6 +153,7 @@ class _HomeTab extends StatelessWidget {
     final favoriteCount = recipes.where((recipe) => recipe.isFavorite).length;
     final recentRecipes = recipes.take(3).toList();
     final greeting = _buildGreeting(user);
+    final plannedMealCount = mealPlanProvider.plannedMealCount;
 
     return Container(
       decoration: BoxDecoration(
@@ -193,9 +201,11 @@ class _HomeTab extends StatelessWidget {
               Expanded(
                 child: _StatCard(
                   label: 'Meals Planned',
-                  value: '0',
+                  value: plannedMealCount.toString(),
                   icon: Icons.calendar_today_outlined,
-                  helperText: 'Next phase',
+                  helperText: plannedMealCount == 0
+                      ? 'Current week'
+                      : 'This week',
                 ),
               ),
               const SizedBox(width: 12),
