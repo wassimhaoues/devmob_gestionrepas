@@ -51,8 +51,12 @@ void main() async {
           )..initialize(),
         ),
         ChangeNotifierProvider<RecipeProvider>(
-          create: (context) =>
-              RecipeProvider(recipeService: context.read<RecipeService>()),
+          create: (context) => RecipeProvider(
+            recipeService: context.read<RecipeService>(),
+            recipeImageStorageService: context
+                .read<RecipeImageStorageService>(),
+            recipeImageProcessor: context.read<RecipeImageProcessor>(),
+          ),
         ),
       ],
       child: const MyApp(),

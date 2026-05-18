@@ -3,22 +3,34 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/ingredient.dart';
+import '../models/processed_recipe_image.dart';
 import '../models/recipe.dart';
 import '../models/recipe_category.dart';
 import '../models/recipe_failure.dart';
+import '../models/recipe_image_selection.dart';
 import '../models/recipe_step.dart';
 import '../services/recipe/ingredient_normalizer.dart';
 import '../services/recipe/recipe_exception.dart';
+import '../services/recipe/recipe_image_processing_exception.dart';
+import '../services/recipe/recipe_image_processor.dart';
+import '../services/recipe/recipe_image_storage_service.dart';
 import '../services/recipe/recipe_service.dart';
 import '../services/recipe/recipe_validators.dart';
 
 enum RecipeProviderStatus { initial, loading, ready, mutating, error }
 
 class RecipeProvider extends ChangeNotifier {
-  RecipeProvider({required RecipeService recipeService})
-    : _recipeService = recipeService;
+  RecipeProvider({
+    required RecipeService recipeService,
+    required RecipeImageStorageService recipeImageStorageService,
+    required RecipeImageProcessor recipeImageProcessor,
+  }) : _recipeService = recipeService,
+       _recipeImageStorageService = recipeImageStorageService,
+       _recipeImageProcessor = recipeImageProcessor;
 
   final RecipeService _recipeService;
+  final RecipeImageStorageService _recipeImageStorageService;
+  final RecipeImageProcessor _recipeImageProcessor;
 
   StreamSubscription<List<Recipe>>? _recipesSubscription;
   bool _disposed = false;
@@ -210,8 +222,7 @@ class RecipeProvider extends ChangeNotifier {
     required List<Ingredient> ingredients,
     required List<RecipeStep> steps,
     bool isFavorite = false,
-    String? imageUrl,
-    String? imageStoragePath,
+    RecipeImageSelection? imageSelection,
   }) async {
     final currentUid = _uid;
     if (currentUid == null) {
@@ -235,8 +246,6 @@ class RecipeProvider extends ChangeNotifier {
       category: category,
       ingredients: normalizedIngredients,
       steps: normalizedSteps,
-      imageUrl: imageUrl,
-      imageStoragePath: imageStoragePath,
     );
     if (errors.isNotEmpty) {
       _status = RecipeProviderStatus.error;
@@ -253,6 +262,19 @@ class RecipeProvider extends ChangeNotifier {
     _errorMessage = null;
     _failure = null;
     _safeNotify();
+
+    ProcessedRecipeImage? processedImage;
+    try {
+      processedImage = await _processImageSelection(imageSelection);
+    } on RecipeImageProcessingException catch (error) {
+      _applyMessageFailure(
+        RecipeFailure(
+          code: RecipeFailureCode.invalidData,
+          message: error.message,
+        ),
+      );
+      return <String>[error.message];
+    }
 
     final now = DateTime.now();
     final payload = Recipe(
@@ -266,21 +288,61 @@ class RecipeProvider extends ChangeNotifier {
       steps: normalizedSteps,
       createdAt: now,
       updatedAt: now,
-      imageUrl: _normalizeOptionalText(imageUrl),
-      imageStoragePath: _normalizeOptionalText(imageStoragePath),
+      imageUrl: null,
+      imageStoragePath: null,
+      imageMimeType: null,
+      imageSizeBytes: null,
     );
 
+    String? createdId;
+    String? uploadedStoragePath;
     try {
-      final createdId = await _recipeService.createRecipe(
+      createdId = await _recipeService.createRecipe(
         uid: currentUid,
         recipe: payload,
       );
+      var createdRecipe = payload.copyWith(id: createdId);
+
+      if (processedImage != null) {
+        final uploadResult = await _recipeImageStorageService.uploadRecipeImage(
+          uid: currentUid,
+          recipeId: createdId,
+          bytes: processedImage.bytes,
+          mimeType: processedImage.mimeType,
+          fileName: _buildStoredImageFileName(processedImage.fileName),
+        );
+        uploadedStoragePath = uploadResult.storagePath;
+        createdRecipe = createdRecipe.copyWith(
+          imageUrl: uploadResult.downloadUrl,
+          imageStoragePath: uploadResult.storagePath,
+          imageMimeType: uploadResult.mimeType,
+          imageSizeBytes: uploadResult.sizeBytes,
+          updatedAt: DateTime.now(),
+        );
+        await _recipeService.updateRecipe(
+          uid: currentUid,
+          recipe: createdRecipe,
+        );
+      }
+
       _selectedRecipeId = createdId;
+      _upsertRecipe(createdRecipe);
       _status = RecipeProviderStatus.ready;
       _failure = null;
       _safeNotify();
       return const <String>[];
     } catch (error) {
+      if (uploadedStoragePath != null) {
+        await _deleteStoredImageQuietly(uploadedStoragePath);
+      }
+      if (createdId != null) {
+        try {
+          await _recipeService.deleteRecipe(
+            uid: currentUid,
+            recipeId: createdId,
+          );
+        } catch (_) {}
+      }
       _applyServiceError(error);
       return <String>[_errorMessage!];
     }
@@ -294,8 +356,8 @@ class RecipeProvider extends ChangeNotifier {
     required List<Ingredient> ingredients,
     required List<RecipeStep> steps,
     bool? isFavorite,
-    String? imageUrl,
-    String? imageStoragePath,
+    RecipeImageSelection? imageSelection,
+    bool removeImage = false,
   }) async {
     final currentUid = _uid;
     if (currentUid == null) {
@@ -318,8 +380,6 @@ class RecipeProvider extends ChangeNotifier {
       category: category,
       ingredients: normalizedIngredients,
       steps: normalizedSteps,
-      imageUrl: imageUrl,
-      imageStoragePath: imageStoragePath,
     );
     if (errors.isNotEmpty) {
       _status = RecipeProviderStatus.error;
@@ -332,8 +392,33 @@ class RecipeProvider extends ChangeNotifier {
       return errors;
     }
 
+    ProcessedRecipeImage? processedImage;
+    try {
+      processedImage = await _processImageSelection(imageSelection);
+    } on RecipeImageProcessingException catch (error) {
+      _applyMessageFailure(
+        RecipeFailure(
+          code: RecipeFailureCode.invalidData,
+          message: error.message,
+        ),
+      );
+      return <String>[error.message];
+    }
+
     final existingRecipe = _findRecipeById(recipeId);
     final now = DateTime.now();
+    String? nextImageUrl = existingRecipe?.imageUrl;
+    String? nextImageStoragePath = existingRecipe?.imageStoragePath;
+    String? nextImageMimeType = existingRecipe?.imageMimeType;
+    int? nextImageSizeBytes = existingRecipe?.imageSizeBytes;
+
+    if (removeImage) {
+      nextImageUrl = null;
+      nextImageStoragePath = null;
+      nextImageMimeType = null;
+      nextImageSizeBytes = null;
+    }
+
     final payload = Recipe(
       id: recipeId.trim(),
       ownerUid: currentUid,
@@ -345,8 +430,10 @@ class RecipeProvider extends ChangeNotifier {
       steps: normalizedSteps,
       createdAt: existingRecipe?.createdAt ?? now,
       updatedAt: now,
-      imageUrl: _normalizeOptionalText(imageUrl),
-      imageStoragePath: _normalizeOptionalText(imageStoragePath),
+      imageUrl: nextImageUrl,
+      imageStoragePath: nextImageStoragePath,
+      imageMimeType: nextImageMimeType,
+      imageSizeBytes: nextImageSizeBytes,
     );
 
     _status = RecipeProviderStatus.mutating;
@@ -354,15 +441,53 @@ class RecipeProvider extends ChangeNotifier {
     _failure = null;
     _safeNotify();
 
+    String? uploadedStoragePath;
+    Recipe updatedPayload = payload;
     try {
-      await _recipeService.updateRecipe(uid: currentUid, recipe: payload);
-      _selectedRecipeId = payload.id;
-      _upsertRecipe(payload);
+      if (processedImage != null) {
+        final uploadResult = await _recipeImageStorageService.uploadRecipeImage(
+          uid: currentUid,
+          recipeId: payload.id,
+          bytes: processedImage.bytes,
+          mimeType: processedImage.mimeType,
+          fileName: _buildStoredImageFileName(processedImage.fileName),
+        );
+        uploadedStoragePath = uploadResult.storagePath;
+        updatedPayload = payload.copyWith(
+          imageUrl: uploadResult.downloadUrl,
+          imageStoragePath: uploadResult.storagePath,
+          imageMimeType: uploadResult.mimeType,
+          imageSizeBytes: uploadResult.sizeBytes,
+        );
+      }
+
+      await _recipeService.updateRecipe(
+        uid: currentUid,
+        recipe: updatedPayload,
+      );
+      _selectedRecipeId = updatedPayload.id;
+      _upsertRecipe(updatedPayload);
+
+      final previousStoragePath = existingRecipe?.imageStoragePath;
+      final nextStoragePath = updatedPayload.imageStoragePath;
+      final shouldDeletePreviousImage =
+          previousStoragePath != null &&
+          previousStoragePath.isNotEmpty &&
+          (removeImage ||
+              (uploadedStoragePath != null &&
+                  previousStoragePath != nextStoragePath));
+      if (shouldDeletePreviousImage) {
+        await _deleteStoredImageQuietly(previousStoragePath);
+      }
+
       _status = RecipeProviderStatus.ready;
       _failure = null;
       _safeNotify();
       return const <String>[];
     } catch (error) {
+      if (uploadedStoragePath != null) {
+        await _deleteStoredImageQuietly(uploadedStoragePath);
+      }
       _applyServiceError(error);
       return <String>[_errorMessage!];
     }
@@ -387,6 +512,10 @@ class RecipeProvider extends ChangeNotifier {
 
     try {
       await _recipeService.deleteRecipe(uid: currentUid, recipeId: recipeId);
+      final imageStoragePath = _findRecipeById(recipeId)?.imageStoragePath;
+      if (imageStoragePath != null && imageStoragePath.isNotEmpty) {
+        await _deleteStoredImageQuietly(imageStoragePath);
+      }
       _recipes = _recipes.where((recipe) => recipe.id != recipeId).toList();
       if (_selectedRecipeId == recipeId) {
         _selectedRecipeId = null;
@@ -492,14 +621,6 @@ class RecipeProvider extends ChangeNotifier {
     _recipes = updatedRecipes;
   }
 
-  String? _normalizeOptionalText(String? value) {
-    final normalized = (value ?? '').trim();
-    if (normalized.isEmpty) {
-      return null;
-    }
-    return normalized;
-  }
-
   void _safeNotify() {
     if (_disposed) {
       return;
@@ -523,6 +644,31 @@ class RecipeProvider extends ChangeNotifier {
     _status = RecipeProviderStatus.error;
     _errorMessage = failure.message;
     _safeNotify();
+  }
+
+  Future<ProcessedRecipeImage?> _processImageSelection(
+    RecipeImageSelection? imageSelection,
+  ) async {
+    if (imageSelection == null) {
+      return null;
+    }
+
+    return _recipeImageProcessor.processImage(
+      bytes: imageSelection.bytes,
+      originalFileName: imageSelection.fileName,
+      mimeType: imageSelection.mimeType,
+    );
+  }
+
+  String _buildStoredImageFileName(String sourceFileName) {
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    return 'cover_$timestamp.jpg';
+  }
+
+  Future<void> _deleteStoredImageQuietly(String storagePath) async {
+    try {
+      await _recipeImageStorageService.deleteRecipeImage(storagePath);
+    } catch (_) {}
   }
 
   @override
