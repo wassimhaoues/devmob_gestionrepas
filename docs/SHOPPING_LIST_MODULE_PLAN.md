@@ -3,19 +3,23 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 1: not started
+- Phase 2: not started
 
 Completed in this phase:
-- nothing yet
+- Phase 1: foundation layer completed
+- added shopping domain models
+- added generation and local checked-state services
+- added `ShoppingListProvider` and app-level dependency wiring
+- added `shared_preferences` dependency
 
 Still missing:
-- `ShoppingList` and `ShoppingListItem` models
-- `ShoppingListGeneratorService` (aggregation and deduplication)
-- `LocalShoppingListStateService` (checked-state persistence)
-- `ShoppingListProvider`
 - real `ShoppingListPage` implementation (current file is a static placeholder)
-- `shared_preferences` package (not yet in pubspec.yaml)
 - all tests
+
+Implementation phases:
+- [x] Phase 1: foundation layer
+- [ ] Phase 2: real shopping list page and meal-plan integration
+- [ ] Phase 3: tests, hardening, and polish
 
 ## 1. Why This Module Exists
 
@@ -254,4 +258,3 @@ This module is complete when:
 
 Any future branch created for this work must start with:
 - `feature/`
-
