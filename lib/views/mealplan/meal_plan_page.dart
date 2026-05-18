@@ -60,7 +60,15 @@ class _MealPlanPageState extends State<MealPlanPage> {
               onRetry: provider.refresh,
             )
           else
-            _WeekScheduleCard(week: week),
+            Column(
+              children: [
+                if (provider.entries.isEmpty) ...[
+                  const _EmptyWeekState(),
+                  const SizedBox(height: 12),
+                ],
+                _WeekScheduleCard(week: week),
+              ],
+            ),
           const SizedBox(height: 16),
           const _PhaseNoteCard(),
         ],
@@ -75,7 +83,12 @@ class _MealPlanPageState extends State<MealPlanPage> {
     }
 
     _lastSyncedUid = uid;
-    unawaited(context.read<MealPlanProvider>().startWatchingWeek(uid: uid));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(context.read<MealPlanProvider>().startWatchingWeek(uid: uid));
+    });
   }
 }
 
@@ -403,6 +416,46 @@ class _PhaseNoteCard extends StatelessWidget {
             const Text('• pick a recipe for any slot'),
             const Text('• replace or remove assignments from the UI'),
             const Text('• connect recipe selection flow into this week view'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyWeekState extends StatelessWidget {
+  const _EmptyWeekState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: 0.32),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lightbulb_outline),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your week is empty',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Tap any breakfast, lunch, or dinner slot below to assign a recipe and start building the week.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
