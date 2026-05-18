@@ -1,13 +1,23 @@
+class CheckedShoppingItemState {
+  const CheckedShoppingItemState({
+    required this.itemId,
+    required this.totalQuantity,
+  });
+
+  final String itemId;
+  final double totalQuantity;
+}
+
 abstract interface class LocalShoppingListStateService {
-  Future<Set<String>> readCheckedItemIds({
+  Future<Map<String, CheckedShoppingItemState>> readCheckedItemStates({
     required String uid,
     required DateTime weekStartDate,
   });
 
-  Future<void> writeCheckedItemIds({
+  Future<void> writeCheckedItemStates({
     required String uid,
     required DateTime weekStartDate,
-    required Set<String> itemIds,
+    required Map<String, CheckedShoppingItemState> itemStates,
   });
 
   Future<void> clearCheckedItemIds({

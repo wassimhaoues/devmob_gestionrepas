@@ -140,13 +140,21 @@ void main() {
 
     expect(find.text('Tomatoes'), findsOneWidget);
     expect(find.text('5 piece'), findsOneWidget);
-    expect(find.text('Used in 1 planned recipe'), findsOneWidget);
+    expect(find.text('Tap when added to cart'), findsOneWidget);
 
-    await tester.tap(find.byType(CheckboxListTile));
+    await tester.tap(find.byType(Checkbox).first);
     await tester.pumpAndSettle();
 
     expect(shoppingProvider.items.single.isChecked, isTrue);
-    expect(localStateService.checkedIds, <String>{'tomato__piece'});
+    expect(localStateService.checkedStates['tomato__piece']?.totalQuantity, 5);
+    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('Hide completed'), findsOneWidget);
+
+    await tester.tap(find.text('Hide completed'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Everything is checked off'), findsOneWidget);
+    expect(find.text('Tomatoes'), findsNothing);
 
     shoppingProvider.dispose();
     mealPlanProvider.dispose();
@@ -324,31 +332,32 @@ class _FakeRecipeService implements RecipeService {
 
 class _FakeLocalShoppingListStateService
     implements LocalShoppingListStateService {
-  Set<String> checkedIds = <String>{};
+  Map<String, CheckedShoppingItemState> checkedStates =
+      <String, CheckedShoppingItemState>{};
 
   @override
   Future<void> clearCheckedItemIds({
     required String uid,
     required DateTime weekStartDate,
   }) async {
-    checkedIds = <String>{};
+    checkedStates = <String, CheckedShoppingItemState>{};
   }
 
   @override
-  Future<Set<String>> readCheckedItemIds({
+  Future<Map<String, CheckedShoppingItemState>> readCheckedItemStates({
     required String uid,
     required DateTime weekStartDate,
   }) async {
-    return checkedIds;
+    return checkedStates;
   }
 
   @override
-  Future<void> writeCheckedItemIds({
+  Future<void> writeCheckedItemStates({
     required String uid,
     required DateTime weekStartDate,
-    required Set<String> itemIds,
+    required Map<String, CheckedShoppingItemState> itemStates,
   }) async {
-    checkedIds = itemIds;
+    checkedStates = itemStates;
   }
 }
 

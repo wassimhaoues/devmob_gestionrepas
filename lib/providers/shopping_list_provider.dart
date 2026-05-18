@@ -54,14 +54,19 @@ class ShoppingListProvider extends ChangeNotifier {
         weekStartDate: week.startDate,
         entries: entries,
       );
-      final checkedIds = await _localStateService.readCheckedItemIds(
+      final checkedStates = await _localStateService.readCheckedItemStates(
         uid: uid,
         weekStartDate: week.startDate,
       );
       _shoppingList = generatedList.copyWith(
         items: generatedList.items
             .map(
-              (item) => item.copyWith(isChecked: checkedIds.contains(item.id)),
+              (item) => item.copyWith(
+                isChecked: _shouldKeepCheckedState(
+                  item: item,
+                  checkedState: checkedStates[item.id],
+                ),
+              ),
             )
             .toList(),
       );
@@ -154,15 +159,35 @@ class ShoppingListProvider extends ChangeNotifier {
     required MealPlanWeek week,
     required List<ShoppingListItem> items,
   }) async {
-    final checkedIds = items
+    final checkedStates = items
         .where((item) => item.isChecked)
-        .map((item) => item.id)
-        .toSet();
-    await _localStateService.writeCheckedItemIds(
+        .map(
+          (item) => MapEntry(
+            item.id,
+            CheckedShoppingItemState(
+              itemId: item.id,
+              totalQuantity: item.totalQuantity,
+            ),
+          ),
+        );
+    await _localStateService.writeCheckedItemStates(
       uid: uid,
       weekStartDate: week.startDate,
-      itemIds: checkedIds,
+      itemStates: Map<String, CheckedShoppingItemState>.fromEntries(
+        checkedStates,
+      ),
     );
+  }
+
+  bool _shouldKeepCheckedState({
+    required ShoppingListItem item,
+    required CheckedShoppingItemState? checkedState,
+  }) {
+    if (checkedState == null) {
+      return false;
+    }
+
+    return checkedState.totalQuantity == item.totalQuantity;
   }
 
   void _safeNotify() {

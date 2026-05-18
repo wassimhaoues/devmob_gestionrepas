@@ -1,3 +1,4 @@
+import 'package:devmob_gestionrepas/services/shopping/local_shopping_list_state_service.dart';
 import 'package:devmob_gestionrepas/services/shopping/shared_prefs_shopping_list_state_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,66 +12,97 @@ void main() {
     service = SharedPrefsShoppingListStateService();
   });
 
-  test('writes and reads checked ids for the same user and week', () async {
-    await service.writeCheckedItemIds(
+  test('writes and reads checked states for the same user and week', () async {
+    await service.writeCheckedItemStates(
       uid: 'user-1',
       weekStartDate: weekStartDate,
-      itemIds: <String>{'milk__l', 'tomato__piece'},
+      itemStates: <String, CheckedShoppingItemState>{
+        'milk__l': const CheckedShoppingItemState(
+          itemId: 'milk__l',
+          totalQuantity: 1,
+        ),
+        'tomato__piece': const CheckedShoppingItemState(
+          itemId: 'tomato__piece',
+          totalQuantity: 5,
+        ),
+      },
     );
 
-    final checkedIds = await service.readCheckedItemIds(
+    final checkedStates = await service.readCheckedItemStates(
       uid: 'user-1',
       weekStartDate: weekStartDate,
     );
 
-    expect(checkedIds, <String>{'milk__l', 'tomato__piece'});
+    expect(checkedStates.keys, <String>{'milk__l', 'tomato__piece'});
+    expect(checkedStates['milk__l']?.totalQuantity, 1);
+    expect(checkedStates['tomato__piece']?.totalQuantity, 5);
   });
 
   test('keeps persisted state isolated by week and user', () async {
-    await service.writeCheckedItemIds(
+    await service.writeCheckedItemStates(
       uid: 'user-1',
       weekStartDate: weekStartDate,
-      itemIds: <String>{'milk__l'},
+      itemStates: <String, CheckedShoppingItemState>{
+        'milk__l': const CheckedShoppingItemState(
+          itemId: 'milk__l',
+          totalQuantity: 1,
+        ),
+      },
     );
-    await service.writeCheckedItemIds(
+    await service.writeCheckedItemStates(
       uid: 'user-2',
       weekStartDate: weekStartDate,
-      itemIds: <String>{'tomato__piece'},
+      itemStates: <String, CheckedShoppingItemState>{
+        'tomato__piece': const CheckedShoppingItemState(
+          itemId: 'tomato__piece',
+          totalQuantity: 5,
+        ),
+      },
     );
-    await service.writeCheckedItemIds(
+    await service.writeCheckedItemStates(
       uid: 'user-1',
       weekStartDate: DateTime(2026, 5, 25),
-      itemIds: <String>{'rice__kg'},
+      itemStates: <String, CheckedShoppingItemState>{
+        'rice__kg': const CheckedShoppingItemState(
+          itemId: 'rice__kg',
+          totalQuantity: 2,
+        ),
+      },
     );
 
     expect(
-      await service.readCheckedItemIds(
+      (await service.readCheckedItemStates(
         uid: 'user-1',
         weekStartDate: weekStartDate,
-      ),
-      <String>{'milk__l'},
+      ))['milk__l']?.totalQuantity,
+      1,
     );
     expect(
-      await service.readCheckedItemIds(
+      (await service.readCheckedItemStates(
         uid: 'user-2',
         weekStartDate: weekStartDate,
-      ),
-      <String>{'tomato__piece'},
+      ))['tomato__piece']?.totalQuantity,
+      5,
     );
     expect(
-      await service.readCheckedItemIds(
+      (await service.readCheckedItemStates(
         uid: 'user-1',
         weekStartDate: DateTime(2026, 5, 25),
-      ),
-      <String>{'rice__kg'},
+      ))['rice__kg']?.totalQuantity,
+      2,
     );
   });
 
   test('clear removes checked ids for the selected user and week', () async {
-    await service.writeCheckedItemIds(
+    await service.writeCheckedItemStates(
       uid: 'user-1',
       weekStartDate: weekStartDate,
-      itemIds: <String>{'milk__l'},
+      itemStates: <String, CheckedShoppingItemState>{
+        'milk__l': const CheckedShoppingItemState(
+          itemId: 'milk__l',
+          totalQuantity: 1,
+        ),
+      },
     );
 
     await service.clearCheckedItemIds(
@@ -78,7 +110,7 @@ void main() {
       weekStartDate: weekStartDate,
     );
 
-    final checkedIds = await service.readCheckedItemIds(
+    final checkedIds = await service.readCheckedItemStates(
       uid: 'user-1',
       weekStartDate: weekStartDate,
     );
