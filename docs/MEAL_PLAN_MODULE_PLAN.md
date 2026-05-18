@@ -1,5 +1,27 @@
 # Meal Plan Module Plan
 
+## Progress Tracker
+
+Current phase:
+- Phase 3: assignment flow
+
+Completed in this phase:
+- meal-plan domain models
+- meal-plan failure model and exception mapping
+- Firestore service contract and initial Firestore implementation
+- Firestore rules and index definitions for meal-plan entries
+- foundation unit tests for models and error mapping
+- `MealPlanProvider` with week loading, week switching, and slot mutation methods
+- live meal-plan page wired to provider state
+- app-shell meal summary connected to live provider data
+- dedicated recipe assignment page for meal slots
+- independent recipe loading for assignment flow
+- remove/replace assignment interactions from the week view
+
+Still missing:
+- meal-plan widget/provider tests
+- richer calendar interaction polish
+
 ## 1. Why This Module Exists
 
 The PDF requires weekly meal planning as a core feature, and it is currently
@@ -229,4 +251,3 @@ This module is complete when:
 
 Any future branch created for this work must start with:
 - `feature/`
-

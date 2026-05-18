@@ -45,6 +45,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "mealPlanEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "slotType",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

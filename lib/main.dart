@@ -4,11 +4,14 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'providers/meal_plan_provider.dart';
 import 'providers/recipe_provider.dart';
 import 'services/auth/auth_service.dart';
 import 'services/auth/firebase_auth_service.dart';
 import 'services/auth/firestore_user_profile_service.dart';
 import 'services/auth/user_profile_service.dart';
+import 'services/mealplan/firestore_meal_plan_service.dart';
+import 'services/mealplan/meal_plan_service.dart';
 import 'services/recipe/default_recipe_image_processor.dart';
 import 'services/recipe/firestore_recipe_service.dart';
 import 'services/recipe/firebase_recipe_image_storage_service.dart';
@@ -21,6 +24,7 @@ import 'views/auth/login_page.dart';
 import 'views/auth/register_page.dart';
 import 'views/auth/verify_email_page.dart';
 import 'views/dashboard/dashboard_page.dart';
+import 'views/mealplan/assign_recipe_page.dart';
 import 'views/mealplan/meal_plan_page.dart';
 import 'views/recipe/add_recipe_page.dart';
 import 'views/recipe/edit_recipe_page.dart';
@@ -39,6 +43,7 @@ void main() async {
         Provider<UserProfileService>(
           create: (_) => FirestoreUserProfileService(),
         ),
+        Provider<MealPlanService>(create: (_) => FirestoreMealPlanService()),
         Provider<RecipeService>(create: (_) => FirestoreRecipeService()),
         Provider<RecipeImageStorageService>(
           create: (_) => FirebaseRecipeImageStorageService(),
@@ -58,6 +63,11 @@ void main() async {
             recipeImageStorageService: context
                 .read<RecipeImageStorageService>(),
             recipeImageProcessor: context.read<RecipeImageProcessor>(),
+          ),
+        ),
+        ChangeNotifierProvider<MealPlanProvider>(
+          create: (context) => MealPlanProvider(
+            mealPlanService: context.read<MealPlanService>(),
           ),
         ),
       ],
@@ -90,6 +100,7 @@ class MyApp extends StatelessWidget {
           favoritesOnlyView: true,
         ),
         mealPlanRoute: (_) => const MealPlanPage(),
+        assignRecipeRoute: (_) => const AssignRecipePage(),
         shoppingListRoute: (_) => const ShoppingListPage(),
         addRecipeRoute: (_) => const AddRecipePage(),
         recipeDetailRoute: (_) => const RecipeDetailPage(),
