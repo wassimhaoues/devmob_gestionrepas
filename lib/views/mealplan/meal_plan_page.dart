@@ -31,6 +31,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
     final provider = context.watch<MealPlanProvider>();
     final week = provider.activeWeek;
     final selectedDay = _effectiveSelectedDay(week);
+    final isViewOnly = _isPastWeek(week);
 
     return RefreshIndicator(
       onRefresh: provider.refresh,
@@ -42,6 +43,7 @@ class _MealPlanPageState extends State<MealPlanPage> {
             week: week,
             isLoading: provider.isLoading,
             plannedMealCount: provider.plannedMealCount,
+            isViewOnly: isViewOnly,
             onPreviousWeek: () async {
               setState(() => _selectedDay = null);
               await provider.showPreviousWeek();
@@ -76,11 +78,11 @@ class _MealPlanPageState extends State<MealPlanPage> {
           else
             Column(
               children: [
-                if (provider.entries.isEmpty) ...[
+                if (!isViewOnly && provider.entries.isEmpty) ...[
                   const _EmptyWeekState(),
                   const SizedBox(height: 12),
                 ],
-                _DayScheduleSection(day: selectedDay),
+                _DayScheduleSection(day: selectedDay, isViewOnly: isViewOnly),
               ],
             ),
         ],
@@ -97,6 +99,12 @@ class _MealPlanPageState extends State<MealPlanPage> {
     final todayNorm = DateTime(today.year, today.month, today.day);
     final todayInWeek = week.days.any((d) => _isSameDate(d, todayNorm));
     return todayInWeek ? todayNorm : week.days.first;
+  }
+
+  bool _isPastWeek(MealPlanWeek week) {
+    final today = DateTime.now();
+    final todayNorm = DateTime(today.year, today.month, today.day);
+    return week.endDate.isBefore(todayNorm);
   }
 
   void _syncWeekWatcher(BuildContext context) {
@@ -120,6 +128,7 @@ class _WeekHeader extends StatelessWidget {
     required this.week,
     required this.isLoading,
     required this.plannedMealCount,
+    required this.isViewOnly,
     required this.onPreviousWeek,
     required this.onNextWeek,
   });
@@ -127,16 +136,24 @@ class _WeekHeader extends StatelessWidget {
   final MealPlanWeek week;
   final bool isLoading;
   final int plannedMealCount;
+  final bool isViewOnly;
   final Future<void> Function() onPreviousWeek;
   final Future<void> Function() onNextWeek;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = plannedMealCount == 0
-        ? 'No meals planned yet'
-        : '$plannedMealCount meal${plannedMealCount == 1 ? '' : 's'} planned';
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final subtitle = isViewOnly
+        ? (plannedMealCount == 0
+              ? 'No meals were planned'
+              : '$plannedMealCount meal${plannedMealCount == 1 ? '' : 's'} recorded')
+        : (plannedMealCount == 0
+              ? 'No meals planned yet'
+              : '$plannedMealCount meal${plannedMealCount == 1 ? '' : 's'} planned');
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
@@ -147,10 +164,26 @@ class _WeekHeader extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              if (isViewOnly) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.history,
+                      size: 13,
+                      color: colorScheme.outline,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Past week — view only',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -278,9 +311,10 @@ class _WeekDayStrip extends StatelessWidget {
 }
 
 class _DayScheduleSection extends StatelessWidget {
-  const _DayScheduleSection({required this.day});
+  const _DayScheduleSection({required this.day, required this.isViewOnly});
 
   final DateTime day;
+  final bool isViewOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -299,6 +333,7 @@ class _DayScheduleSection extends StatelessWidget {
             day: day,
             slotType: slot,
             entry: provider.entryFor(date: day, slotType: slot),
+            isViewOnly: isViewOnly,
           ),
           if (slot != MealSlotType.values.last) const SizedBox(height: 10),
         ],
@@ -312,61 +347,63 @@ class _MealSlotRow extends StatelessWidget {
     required this.day,
     required this.slotType,
     required this.entry,
+    required this.isViewOnly,
   });
 
   final DateTime day;
   final MealSlotType slotType;
   final MealPlanEntry? entry;
+  final bool isViewOnly;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isEmpty = entry == null;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => _openAssignment(context),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: colorScheme.primaryContainer,
-                foregroundColor: colorScheme.primary,
-                child: Icon(_iconForSlot(slotType), size: 18),
+    final avatar = CircleAvatar(
+      radius: 18,
+      backgroundColor: isViewOnly && isEmpty
+          ? colorScheme.surfaceContainerHighest
+          : colorScheme.primaryContainer,
+      foregroundColor:
+          isViewOnly && isEmpty ? colorScheme.outline : colorScheme.primary,
+      child: Icon(_iconForSlot(slotType), size: 18),
+    );
+
+    final slotLabel = SizedBox(width: 88, child: Text(slotType.label));
+
+    final slotContent = Expanded(
+      child: isEmpty
+          ? Text(
+              isViewOnly ? 'No meal planned' : 'Tap to assign a recipe',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: isViewOnly ? colorScheme.outline : null,
+                fontStyle: isViewOnly ? FontStyle.italic : null,
               ),
-              const SizedBox(width: 12),
-              SizedBox(width: 88, child: Text(slotType.label)),
-              Expanded(
-                child: entry == null
-                    ? Text(
-                        'Tap to assign a recipe',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry!.recipeTitle,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          if (entry!.recipeCategory != null)
-                            Text(
-                              entry!.recipeCategory!.label,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                        ],
-                      ),
-              ),
-              if (entry == null)
-                const Icon(Icons.add_circle_outline)
-              else
-                Row(
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry!.recipeTitle,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                if (entry!.recipeCategory != null)
+                  Text(
+                    entry!.recipeCategory!.label,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+    );
+
+    final trailing = isViewOnly
+        ? (isEmpty
+              ? const SizedBox.shrink()
+              : Icon(Icons.history, size: 16, color: colorScheme.outline))
+        : (isEmpty
+              ? const Icon(Icons.add_circle_outline)
+              : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
@@ -376,11 +413,35 @@ class _MealSlotRow extends StatelessWidget {
                     ),
                     const Icon(Icons.chevron_right),
                   ],
-                ),
-            ],
-          ),
+                ));
+
+    final rowContent = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          avatar,
+          const SizedBox(width: 12),
+          slotLabel,
+          slotContent,
+          trailing,
+        ],
+      ),
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: colorScheme.surfaceContainerHighest.withValues(
+          alpha: isViewOnly && isEmpty ? 0.25 : 0.45,
         ),
       ),
+      child: isViewOnly
+          ? rowContent
+          : InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => _openAssignment(context),
+              child: rowContent,
+            ),
     );
   }
 
