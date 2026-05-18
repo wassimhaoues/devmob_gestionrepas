@@ -157,39 +157,125 @@ class _RecipeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final hasImage = (recipe.imageUrl ?? '').isNotEmpty;
 
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        title: Text(recipe.title),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Chip(
-                label: Text(recipe.category.label),
-                visualDensity: VisualDensity.compact,
+              _RecipeThumbnail(
+                imageUrl: recipe.imageUrl,
+                title: recipe.title,
+                hasImage: hasImage,
               ),
-              Chip(
-                label: Text('${recipe.ingredients.length} ingredients'),
-                visualDensity: VisualDensity.compact,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      recipe.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Chip(
+                          label: Text(recipe.category.label),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        Chip(
+                          label: Text(
+                            '${recipe.ingredients.length} ingredients',
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        Chip(
+                          label: Text('${recipe.steps.length} steps'),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                    if (recipe.description.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        recipe.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              Chip(
-                label: Text('${recipe.steps.length} steps'),
-                visualDensity: VisualDensity.compact,
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: onFavoriteToggle,
+                icon: Icon(recipe.isFavorite ? Icons.star : Icons.star_border),
+                color: recipe.isFavorite ? colorScheme.primary : null,
               ),
             ],
           ),
         ),
-        trailing: IconButton(
-          onPressed: onFavoriteToggle,
-          icon: Icon(recipe.isFavorite ? Icons.star : Icons.star_border),
-          color: recipe.isFavorite ? colorScheme.primary : null,
+      ),
+    );
+  }
+}
+
+class _RecipeThumbnail extends StatelessWidget {
+  const _RecipeThumbnail({
+    required this.imageUrl,
+    required this.title,
+    required this.hasImage,
+  });
+
+  final String? imageUrl;
+  final String title;
+  final bool hasImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholder = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.primaryContainer,
+      ),
+      child: Center(
+        child: Icon(
+          hasImage ? Icons.image_outlined : Icons.restaurant_menu,
+          color: Theme.of(context).colorScheme.primary,
         ),
+      ),
+    );
+
+    return SizedBox(
+      width: 92,
+      height: 92,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: (imageUrl ?? '').isEmpty
+            ? placeholder
+            : Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) {
+                    return child;
+                  }
+                  return placeholder;
+                },
+                errorBuilder: (context, error, stackTrace) => placeholder,
+                semanticLabel: '$title recipe image',
+              ),
       ),
     );
   }

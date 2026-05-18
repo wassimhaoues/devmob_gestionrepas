@@ -98,6 +98,10 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if ((recipe.imageUrl ?? '').isNotEmpty) ...[
+            _RecipeHeroImage(recipe: recipe),
+            const SizedBox(height: 12),
+          ],
           _SummaryCard(recipe: recipe),
           const SizedBox(height: 12),
           _IngredientsCard(recipe: recipe),
@@ -239,20 +243,62 @@ class _SummaryCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
-            if ((recipe.imageUrl ?? '').isNotEmpty ||
-                (recipe.imageStoragePath ?? '').isNotEmpty) ...[
+            if ((recipe.imageMimeType ?? '').isNotEmpty ||
+                recipe.imageSizeBytes != null) ...[
               const SizedBox(height: 12),
               Text(
-                'Image metadata',
+                'Photo details',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 4),
-              if ((recipe.imageUrl ?? '').isNotEmpty)
-                Text('URL: ${recipe.imageUrl}'),
-              if ((recipe.imageStoragePath ?? '').isNotEmpty)
-                Text('Storage path: ${recipe.imageStoragePath}'),
+              if ((recipe.imageMimeType ?? '').isNotEmpty)
+                Text('Format: ${recipe.imageMimeType}'),
+              if (recipe.imageSizeBytes != null)
+                Text('Size: ${_formatBytes(recipe.imageSizeBytes!)}'),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeHeroImage extends StatelessWidget {
+  const _RecipeHeroImage({required this.recipe});
+
+  final Recipe recipe;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Image.network(
+          recipe.imageUrl!,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) {
+              return child;
+            }
+
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              child: const Center(
+                child: Icon(Icons.broken_image_outlined, size: 40),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -319,4 +365,16 @@ class _StepsCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatBytes(int bytes) {
+  if (bytes < 1024) {
+    return '$bytes B';
+  }
+  final kilobytes = bytes / 1024;
+  if (kilobytes < 1024) {
+    return '${kilobytes.toStringAsFixed(1)} KB';
+  }
+  final megabytes = kilobytes / 1024;
+  return '${megabytes.toStringAsFixed(1)} MB';
 }
