@@ -128,6 +128,15 @@ class ShoppingListProvider extends ChangeNotifier {
     );
   }
 
+  void reset() {
+    _uid = null;
+    _activeWeek = null;
+    _shoppingList = null;
+    _status = ShoppingListProviderStatus.initial;
+    _errorMessage = null;
+    _safeNotify();
+  }
+
   Future<void> _persistCheckedState({
     required String uid,
     required MealPlanWeek week,
