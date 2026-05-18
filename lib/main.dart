@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/meal_plan_provider.dart';
 import 'providers/recipe_provider.dart';
+import 'providers/shopping_list_provider.dart';
 import 'services/auth/auth_service.dart';
 import 'services/auth/firebase_auth_service.dart';
 import 'services/auth/firestore_user_profile_service.dart';
@@ -18,6 +19,9 @@ import 'services/recipe/firebase_recipe_image_storage_service.dart';
 import 'services/recipe/recipe_image_processor.dart';
 import 'services/recipe/recipe_image_storage_service.dart';
 import 'services/recipe/recipe_service.dart';
+import 'services/shopping/local_shopping_list_state_service.dart';
+import 'services/shopping/shared_prefs_shopping_list_state_service.dart';
+import 'services/shopping/shopping_list_generator_service.dart';
 import 'views/auth/auth_gate.dart';
 import 'views/auth/forgot_password_page.dart';
 import 'views/auth/login_page.dart';
@@ -45,11 +49,19 @@ void main() async {
         ),
         Provider<MealPlanService>(create: (_) => FirestoreMealPlanService()),
         Provider<RecipeService>(create: (_) => FirestoreRecipeService()),
+        Provider<LocalShoppingListStateService>(
+          create: (_) => SharedPrefsShoppingListStateService(),
+        ),
         Provider<RecipeImageStorageService>(
           create: (_) => FirebaseRecipeImageStorageService(),
         ),
         Provider<RecipeImageProcessor>(
           create: (_) => DefaultRecipeImageProcessor(),
+        ),
+        Provider<ShoppingListGeneratorService>(
+          create: (context) => ShoppingListGeneratorService(
+            recipeService: context.read<RecipeService>(),
+          ),
         ),
         ChangeNotifierProvider<AuthProvider>(
           create: (context) => AuthProvider(
@@ -68,6 +80,12 @@ void main() async {
         ChangeNotifierProvider<MealPlanProvider>(
           create: (context) => MealPlanProvider(
             mealPlanService: context.read<MealPlanService>(),
+          ),
+        ),
+        ChangeNotifierProvider<ShoppingListProvider>(
+          create: (context) => ShoppingListProvider(
+            generatorService: context.read<ShoppingListGeneratorService>(),
+            localStateService: context.read<LocalShoppingListStateService>(),
           ),
         ),
       ],

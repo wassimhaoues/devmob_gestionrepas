@@ -43,6 +43,7 @@ dependencies:
   image: ^4.8.0
   mime: ^2.0.0
   path: ^1.9.1
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
