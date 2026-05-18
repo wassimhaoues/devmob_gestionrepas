@@ -99,13 +99,19 @@ class ShoppingListProvider extends ChangeNotifier {
         )
         .toList();
     _shoppingList = currentList.copyWith(items: updatedItems);
+    _errorMessage = null;
     _safeNotify();
 
-    await _persistCheckedState(
-      uid: currentUid,
-      week: currentWeek,
-      items: updatedItems,
-    );
+    try {
+      await _persistCheckedState(
+        uid: currentUid,
+        week: currentWeek,
+        items: updatedItems,
+      );
+    } catch (error) {
+      _errorMessage = 'Unable to save shopping checklist state.';
+      _safeNotify();
+    }
   }
 
   Future<void> clearCheckedItems() async {
@@ -120,12 +126,18 @@ class ShoppingListProvider extends ChangeNotifier {
         .map((item) => item.copyWith(isChecked: false))
         .toList();
     _shoppingList = currentList.copyWith(items: updatedItems);
+    _errorMessage = null;
     _safeNotify();
 
-    await _localStateService.clearCheckedItemIds(
-      uid: currentUid,
-      weekStartDate: currentWeek.startDate,
-    );
+    try {
+      await _localStateService.clearCheckedItemIds(
+        uid: currentUid,
+        weekStartDate: currentWeek.startDate,
+      );
+    } catch (error) {
+      _errorMessage = 'Unable to save shopping checklist state.';
+      _safeNotify();
+    }
   }
 
   void reset() {
