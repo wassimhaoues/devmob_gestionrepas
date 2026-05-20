@@ -68,7 +68,10 @@ class ShoppingListProvider extends ChangeNotifier {
       _rebuildVisibleItems();
       _status = ShoppingListProviderStatus.ready;
       _safeNotify();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint(
+        'ShoppingListProvider.loadForWeek failed: $error\n$stackTrace',
+      );
       _generatedShoppingList = null;
       _localState = ShoppingListLocalState.empty;
       _pendingItems = const <ShoppingListItem>[];

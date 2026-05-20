@@ -166,4 +166,21 @@ void main() {
     expect(restored.completedItems, isEmpty);
     expect(restored.separatePendingItems, isEmpty);
   });
+
+  test('readState ignores legacy StringList payloads without throwing', () async {
+    final storageKey =
+        'shopping_check_state_user-1_${SharedPrefsShoppingListStateService.buildWeekKey(weekStartDate)}';
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      storageKey: <String>['milk__l', 'olive__cup'],
+    });
+    service = SharedPrefsShoppingListStateService();
+
+    final restored = await service.readState(
+      uid: 'user-1',
+      weekStartDate: weekStartDate,
+    );
+
+    expect(restored.completedItems, isEmpty);
+    expect(restored.separatePendingItems, isEmpty);
+  });
 }

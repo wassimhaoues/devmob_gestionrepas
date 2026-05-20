@@ -24,9 +24,15 @@ class SharedPrefsShoppingListStateService
     required DateTime weekStartDate,
   }) async {
     final preferences = await SharedPreferences.getInstance();
-    final encoded = preferences.getString(
+    final rawValue = preferences.get(
       _buildStorageKey(uid: uid, weekStartDate: weekStartDate),
     );
+    if (rawValue is List) {
+      // Older app versions stored checklist state as a StringList.
+      // Treat that legacy shape as empty instead of throwing on load.
+      return ShoppingListLocalState.empty;
+    }
+    final encoded = rawValue as String?;
     if (encoded == null || encoded.trim().isEmpty) {
       return ShoppingListLocalState.empty;
     }
