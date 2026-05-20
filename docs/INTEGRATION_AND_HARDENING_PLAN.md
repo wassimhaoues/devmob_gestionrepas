@@ -25,6 +25,8 @@ Completed in this phase:
   deploy steps
 - Phase 3 step 2: added a manual demo-day QA checklist with recommended demo
   data and flow coverage
+- Phase 3 step 3: added widget coverage for `AuthGate` switching between the
+  signed-in shell and login flow
 
 Implementation phases:
 - [x] Phase 1: signed-in flow wiring and dashboard integration
