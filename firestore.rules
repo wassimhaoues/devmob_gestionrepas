@@ -9,15 +9,129 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isNonEmptyString(value) {
+      return value is string && value.size() > 0;
+    }
+
+    function isOptionalString(value) {
+      return value == null || value is string;
+    }
+
+    function isOptionalNumber(value) {
+      return value == null || value is int || value is float;
+    }
+
+    function isTimestamp(value) {
+      return value is timestamp;
+    }
+
+    function isOptionalTimestamp(value) {
+      return value == null || value is timestamp;
+    }
+
+    function isRecipeCategory(value) {
+      return value in ['breakfast', 'lunch', 'dinner', 'dessert'];
+    }
+
+    function hasOnlyKeys(data, keys) {
+      return data.keys().hasOnly(keys);
+    }
+
+    function isValidUserProfile(userId) {
+      return hasOnlyKeys(request.resource.data, [
+               'uid',
+               'email',
+               'displayName',
+               'photoUrl',
+               'emailVerified',
+               'onboardingCompleted',
+               'preferences',
+               'createdAt',
+               'updatedAt',
+               'lastLoginAt',
+             ]) &&
+          request.resource.data.uid == userId &&
+          isNonEmptyString(request.resource.data.email) &&
+          isNonEmptyString(request.resource.data.displayName) &&
+          isOptionalString(request.resource.data.photoUrl) &&
+          request.resource.data.emailVerified is bool &&
+          request.resource.data.onboardingCompleted is bool &&
+          request.resource.data.preferences is map &&
+          isTimestamp(request.resource.data.createdAt) &&
+          isTimestamp(request.resource.data.updatedAt) &&
+          isOptionalTimestamp(request.resource.data.lastLoginAt);
+    }
+
+    function isValidRecipeDocument() {
+      return hasOnlyKeys(request.resource.data, [
+               'title',
+               'description',
+               'category',
+               'isFavorite',
+               'ingredients',
+               'steps',
+               'imageUrl',
+               'imageStoragePath',
+               'imageMimeType',
+               'imageSizeBytes',
+               'createdAt',
+               'updatedAt',
+             ]) &&
+          isNonEmptyString(request.resource.data.title) &&
+          request.resource.data.title.size() <= 120 &&
+          request.resource.data.description is string &&
+          request.resource.data.description.size() <= 1500 &&
+          isRecipeCategory(request.resource.data.category) &&
+          request.resource.data.isFavorite is bool &&
+          request.resource.data.ingredients is list &&
+          request.resource.data.ingredients.size() > 0 &&
+          request.resource.data.steps is list &&
+          request.resource.data.steps.size() > 0 &&
+          isOptionalString(request.resource.data.imageUrl) &&
+          isOptionalString(request.resource.data.imageStoragePath) &&
+          isOptionalString(request.resource.data.imageMimeType) &&
+          isOptionalNumber(request.resource.data.imageSizeBytes) &&
+          isTimestamp(request.resource.data.createdAt) &&
+          isTimestamp(request.resource.data.updatedAt);
+    }
+
+    function isValidMealPlanEntryDocument() {
+      return hasOnlyKeys(request.resource.data, [
+               'date',
+               'slotType',
+               'recipeId',
+               'recipeTitle',
+               'recipeImageUrl',
+               'recipeCategory',
+               'createdAt',
+               'updatedAt',
+             ]) &&
+          isNonEmptyString(request.resource.data.date) &&
+          request.resource.data.slotType in ['breakfast', 'lunch', 'dinner'] &&
+          isNonEmptyString(request.resource.data.recipeId) &&
+          isNonEmptyString(request.resource.data.recipeTitle) &&
+          isOptionalString(request.resource.data.recipeImageUrl) &&
+          (request.resource.data.recipeCategory == null ||
+              isRecipeCategory(request.resource.data.recipeCategory)) &&
+          isTimestamp(request.resource.data.createdAt) &&
+          isTimestamp(request.resource.data.updatedAt);
+    }
+
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUserProfile(userId);
+      allow delete: if isOwner(userId);
 
       match /recipes/{recipeId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidRecipeDocument();
+        allow delete: if isOwner(userId);
       }
 
       match /mealPlanEntries/{entryId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidMealPlanEntryDocument();
+        allow delete: if isOwner(userId);
       }
     }
   }
