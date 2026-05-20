@@ -204,6 +204,14 @@ class _FakeMealPlanService implements MealPlanService {
   }
 
   @override
+  Future<bool> hasEntriesForRecipe({
+    required String uid,
+    required String recipeId,
+  }) async {
+    return false;
+  }
+
+  @override
   Future<void> upsertEntry({
     required String uid,
     required MealPlanEntry entry,
