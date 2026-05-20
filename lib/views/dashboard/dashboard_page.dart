@@ -25,7 +25,8 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
-  String? _lastSyncedUid;
+  String? _lastRecipeSyncUid;
+  String? _lastMealPlanSyncUid;
 
   static const List<String> _titles = <String>[
     'Home',
@@ -36,11 +37,12 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    _syncRecipeWatcher(context);
+    _syncSignedInProviders(context);
 
     final authProvider = context.watch<AuthProvider>();
     final mealPlanProvider = context.watch<MealPlanProvider>();
     final recipeProvider = context.watch<RecipeProvider>();
+    final shoppingProvider = context.watch<ShoppingListProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -60,6 +62,7 @@ class _DashboardPageState extends State<DashboardPage> {
             user: authProvider.currentUser,
             mealPlanProvider: mealPlanProvider,
             recipeProvider: recipeProvider,
+            shoppingProvider: shoppingProvider,
             onOpenRecipes: () => setState(() => _selectedIndex = 1),
             onOpenFavorites: () =>
                 Navigator.of(context).pushNamed(favoriteRecipesRoute),
@@ -74,8 +77,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 Navigator.of(context).pushNamed(favoriteRecipesRoute),
             onAddRecipe: () => Navigator.of(context).pushNamed(addRecipeRoute),
           ),
-          const MealPlanPage(),
-          const ShoppingListPage(),
+          const MealPlanPage(manageMealPlanWatching: false),
+          const ShoppingListPage(manageMealPlanWatching: false),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -105,14 +108,36 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  void _syncRecipeWatcher(BuildContext context) {
+  void _syncSignedInProviders(BuildContext context) {
     final uid = context.read<AuthProvider>().currentUser?.uid;
-    if (uid == null || uid == _lastSyncedUid) {
+    final recipeProvider = context.read<RecipeProvider>();
+    final mealPlanProvider = context.read<MealPlanProvider>();
+
+    if (uid == null) {
+      _lastRecipeSyncUid = null;
+      _lastMealPlanSyncUid = null;
       return;
     }
 
-    _lastSyncedUid = uid;
-    unawaited(context.read<RecipeProvider>().startWatching(uid: uid));
+    if (uid != _lastRecipeSyncUid && recipeProvider.uid != uid) {
+      _lastRecipeSyncUid = uid;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        unawaited(recipeProvider.startWatching(uid: uid));
+      });
+    }
+
+    if (uid != _lastMealPlanSyncUid && mealPlanProvider.uid != uid) {
+      _lastMealPlanSyncUid = uid;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        unawaited(mealPlanProvider.startWatchingWeek(uid: uid));
+      });
+    }
   }
 
   Future<void> _signOut() async {
@@ -124,6 +149,8 @@ class _DashboardPageState extends State<DashboardPage> {
     await recipeProvider.stopWatching();
     await mealPlanProvider.stopWatching();
     shoppingListProvider.reset();
+    _lastRecipeSyncUid = null;
+    _lastMealPlanSyncUid = null;
     await authProvider.signOut();
   }
 }
@@ -133,6 +160,7 @@ class _HomeTab extends StatelessWidget {
     required this.user,
     required this.mealPlanProvider,
     required this.recipeProvider,
+    required this.shoppingProvider,
     required this.onOpenRecipes,
     required this.onOpenFavorites,
     required this.onOpenMealPlan,
@@ -142,6 +170,7 @@ class _HomeTab extends StatelessWidget {
   final AppUser? user;
   final MealPlanProvider mealPlanProvider;
   final RecipeProvider recipeProvider;
+  final ShoppingListProvider shoppingProvider;
   final VoidCallback onOpenRecipes;
   final VoidCallback onOpenFavorites;
   final VoidCallback onOpenMealPlan;
@@ -155,6 +184,24 @@ class _HomeTab extends StatelessWidget {
     final recentRecipes = recipes.take(3).toList();
     final greeting = _buildGreeting(user);
     final plannedMealCount = mealPlanProvider.plannedMealCount;
+    final plannedMealValue =
+        mealPlanProvider.status == MealPlanProviderStatus.loading &&
+            plannedMealCount == 0
+        ? '...'
+        : plannedMealCount.toString();
+    final shoppingPendingCount = shoppingProvider.pendingItems.length;
+    final shoppingValue =
+        shoppingProvider.status == ShoppingListProviderStatus.loading &&
+            shoppingPendingCount == 0 &&
+            shoppingProvider.completedItems.isEmpty
+        ? '...'
+        : shoppingPendingCount.toString();
+    final shoppingHelperText = switch (shoppingProvider.status) {
+      ShoppingListProviderStatus.error => 'Open shopping tab to retry',
+      _ when plannedMealCount == 0 => 'After planning',
+      _ when shoppingPendingCount == 0 => 'Nothing left this week',
+      _ => 'To buy this week',
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -202,7 +249,7 @@ class _HomeTab extends StatelessWidget {
               Expanded(
                 child: _StatCard(
                   label: 'Meals Planned',
-                  value: plannedMealCount.toString(),
+                  value: plannedMealValue,
                   icon: Icons.calendar_today_outlined,
                   helperText: plannedMealCount == 0
                       ? 'Current week'
@@ -213,9 +260,9 @@ class _HomeTab extends StatelessWidget {
               Expanded(
                 child: _StatCard(
                   label: 'Shopping Items',
-                  value: '0',
+                  value: shoppingValue,
                   icon: Icons.shopping_basket_outlined,
-                  helperText: 'After planning',
+                  helperText: shoppingHelperText,
                 ),
               ),
             ],
