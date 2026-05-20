@@ -1,11 +1,14 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../models/shopping_list_item.dart';
 import 'local_shopping_list_state_service.dart';
 
 class SharedPrefsShoppingListStateService
     implements LocalShoppingListStateService {
   @override
-  Future<void> clearCheckedItemIds({
+  Future<void> clearState({
     required String uid,
     required DateTime weekStartDate,
   }) async {
@@ -16,67 +19,77 @@ class SharedPrefsShoppingListStateService
   }
 
   @override
-  Future<Map<String, CheckedShoppingItemState>> readCheckedItemStates({
+  Future<ShoppingListLocalState> readState({
     required String uid,
     required DateTime weekStartDate,
   }) async {
     final preferences = await SharedPreferences.getInstance();
-    final values =
-        preferences.getStringList(
-          _buildStorageKey(uid: uid, weekStartDate: weekStartDate),
-        ) ??
-        const <String>[];
-    final itemStates = <String, CheckedShoppingItemState>{};
-    for (final value in values) {
-      final parsed = _parseStoredValue(value);
-      if (parsed == null) {
-        continue;
-      }
-      itemStates[parsed.itemId] = parsed;
+    final rawValue = preferences.get(
+      _buildStorageKey(uid: uid, weekStartDate: weekStartDate),
+    );
+    if (rawValue is List) {
+      // Older app versions stored checklist state as a StringList.
+      // Treat that legacy shape as empty instead of throwing on load.
+      return ShoppingListLocalState.empty;
     }
-    return itemStates;
+    final encoded = rawValue as String?;
+    if (encoded == null || encoded.trim().isEmpty) {
+      return ShoppingListLocalState.empty;
+    }
+
+    try {
+      final decoded = jsonDecode(encoded);
+      if (decoded is! Map) {
+        return ShoppingListLocalState.empty;
+      }
+
+      final data = decoded.map((key, value) => MapEntry(key.toString(), value));
+
+      return ShoppingListLocalState(
+        completedItems: _readItems(data['completedItems']),
+        separatePendingItems: _readItems(data['separatePendingItems']),
+      );
+    } catch (_) {
+      return ShoppingListLocalState.empty;
+    }
   }
 
   @override
-  Future<void> writeCheckedItemStates({
+  Future<void> writeState({
     required String uid,
     required DateTime weekStartDate,
-    required Map<String, CheckedShoppingItemState> itemStates,
+    required ShoppingListLocalState state,
   }) async {
     final preferences = await SharedPreferences.getInstance();
-    final values = itemStates.values.map(_serializeState).toList()..sort();
-    await preferences.setStringList(
+    final payload = jsonEncode(<String, dynamic>{
+      'completedItems': state.completedItems
+          .map((item) => item.toMap())
+          .toList(),
+      'separatePendingItems': state.separatePendingItems
+          .map((item) => item.toMap())
+          .toList(),
+    });
+    await preferences.setString(
       _buildStorageKey(uid: uid, weekStartDate: weekStartDate),
-      values,
+      payload,
     );
   }
 
-  static String _serializeState(CheckedShoppingItemState state) {
-    return '${state.itemId}|${state.totalQuantity}';
-  }
-
-  static CheckedShoppingItemState? _parseStoredValue(String value) {
-    final normalized = value.trim();
-    if (normalized.isEmpty) {
-      return null;
+  static List<ShoppingListItem> _readItems(Object? value) {
+    if (value is! List) {
+      return const <ShoppingListItem>[];
     }
 
-    final separatorIndex = normalized.lastIndexOf('|');
-    if (separatorIndex <= 0 || separatorIndex == normalized.length - 1) {
-      return CheckedShoppingItemState(itemId: normalized, totalQuantity: 0);
-    }
-
-    final itemId = normalized.substring(0, separatorIndex).trim();
-    final quantityValue = normalized.substring(separatorIndex + 1).trim();
-    final totalQuantity = double.tryParse(quantityValue);
-    if (itemId.isEmpty || totalQuantity == null) {
-      return null;
-    }
-
-    return CheckedShoppingItemState(
-      itemId: itemId,
-      totalQuantity: totalQuantity,
-    );
+    return value
+        .whereType<Map>()
+        .map(
+          (item) => ShoppingListItem.fromMap(
+            item.map(
+              (key, dynamic itemValue) => MapEntry(key.toString(), itemValue),
+            ),
+          ),
+        )
+        .toList();
   }
 
   static String buildWeekKey(DateTime weekStartDate) {

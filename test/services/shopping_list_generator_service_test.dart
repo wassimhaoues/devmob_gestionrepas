@@ -54,6 +54,7 @@ void main() {
       );
 
       expect(shoppingList.items, hasLength(1));
+      expect(shoppingList.items.first.ingredientKey, 'tomato__piece');
       expect(shoppingList.items.first.totalQuantity, 5);
       expect(shoppingList.items.first.unit, 'piece');
       expect(shoppingList.items.first.sourceRecipeIds, <String>[

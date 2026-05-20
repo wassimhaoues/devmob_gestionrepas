@@ -9,6 +9,7 @@ import '../../models/shopping_list_item.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_plan_provider.dart';
 import '../../providers/shopping_list_provider.dart';
+import '../../services/shopping/local_shopping_list_state_service.dart';
 
 const String shoppingListRoute = '/shopping-list';
 
@@ -22,7 +23,7 @@ class ShoppingListPage extends StatefulWidget {
 class _ShoppingListPageState extends State<ShoppingListPage> {
   String? _lastSyncedMealPlanUid;
   String? _lastLoadSignature;
-  bool _hideCheckedItems = false;
+  bool _isCompletedExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +35,6 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     final shoppingProvider = context.watch<ShoppingListProvider>();
     final uid = authProvider.currentUser?.uid;
     final week = mealPlanProvider.activeWeek;
-    final visibleItems = _hideCheckedItems
-        ? shoppingProvider.items.where((item) => !item.isChecked).toList()
-        : shoppingProvider.items;
 
     return RefreshIndicator(
       onRefresh: () => _refreshProviders(
@@ -51,29 +49,18 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         children: [
           _HeroHeader(
             week: week,
-            itemCount: shoppingProvider.items.length,
-            checkedCount: shoppingProvider.checkedItemCount,
+            pendingCount: shoppingProvider.pendingItems.length,
+            completedCount: shoppingProvider.completedItems.length,
             isLoading: mealPlanProvider.isLoading || shoppingProvider.isLoading,
             onPreviousWeek: () async => mealPlanProvider.showPreviousWeek(),
             onNextWeek: () async => mealPlanProvider.showNextWeek(),
-            onClearChecked: shoppingProvider.checkedItemCount == 0
-                ? null
-                : shoppingProvider.clearCheckedItems,
           ),
           const SizedBox(height: 16),
           _OverviewCard(
             mealCount: mealPlanProvider.plannedMealCount,
-            itemCount: shoppingProvider.items.length,
-            checkedCount: shoppingProvider.checkedItemCount,
+            pendingCount: shoppingProvider.pendingItems.length,
+            completedCount: shoppingProvider.completedItems.length,
             generatedAt: shoppingProvider.shoppingList?.generatedAt,
-            hideCheckedItems: _hideCheckedItems,
-            onToggleHideChecked: shoppingProvider.checkedItemCount == 0
-                ? null
-                : () {
-                    setState(() {
-                      _hideCheckedItems = !_hideCheckedItems;
-                    });
-                  },
           ),
           const SizedBox(height: 16),
           if (uid == null)
@@ -104,7 +91,8 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
             )
           else if (shoppingProvider.status ==
                   ShoppingListProviderStatus.loading &&
-              shoppingProvider.items.isEmpty)
+              shoppingProvider.pendingItems.isEmpty &&
+              shoppingProvider.completedItems.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 56),
               child: Center(child: CircularProgressIndicator()),
@@ -121,35 +109,33 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                 shoppingProvider: shoppingProvider,
               ),
             )
-          else if (mealPlanProvider.entries.isEmpty)
-            const _MessageCard(
-              icon: Icons.shopping_cart_outlined,
-              title: 'No planned meals for this week',
-              description:
-                  'Plan at least one recipe in the meal planner and the shopping list will be generated automatically.',
-            )
-          else if (shoppingProvider.items.isEmpty)
-            const _MessageCard(
-              icon: Icons.receipt_long_outlined,
-              title: 'No ingredients found',
-              description:
-                  'Your planned recipes do not contain any usable ingredients yet.',
-            )
-          else if (visibleItems.isEmpty)
-            _MessageCard(
-              icon: Icons.check_circle_outline,
-              title: 'Everything is checked off',
-              description: _hideCheckedItems
-                  ? 'All items are hidden because they are marked complete. Turn off "Hide completed" or uncheck all items.'
-                  : 'Your whole list is complete for this week.',
-            )
-          else
-            _ChecklistCard(
-              items: visibleItems,
-              totalItemCount: shoppingProvider.items.length,
-              checkedItemCount: shoppingProvider.checkedItemCount,
-              onToggle: shoppingProvider.toggleItem,
+          else ...[
+            _PendingSection(
+              mealPlanEntries: mealPlanProvider.entries,
+              items: shoppingProvider.pendingItems,
+              onToggle: shoppingProvider.completePendingItem,
             ),
+            const SizedBox(height: 16),
+            _CompletedSection(
+              items: shoppingProvider.completedItems,
+              isExpanded: _isCompletedExpanded,
+              onToggleExpanded: () {
+                setState(() => _isCompletedExpanded = !_isCompletedExpanded);
+              },
+              onReopenItem: (item) async {
+                final shoppingListProvider = context
+                    .read<ShoppingListProvider>();
+                final mode = await _showReopenDialog(context, item);
+                if (mode == null || !mounted) {
+                  return;
+                }
+                await shoppingListProvider.reopenCompletedItem(
+                  itemId: item.id,
+                  mode: mode,
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -170,6 +156,41 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       uid: uid,
       week: week,
       entries: mealPlanProvider.entries,
+    );
+  }
+
+  Future<CompletedItemReopenMode?> _showReopenDialog(
+    BuildContext context,
+    ShoppingListItem item,
+  ) {
+    return showDialog<CompletedItemReopenMode>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reopen completed item?'),
+          content: Text(
+            'How would you like to return ${item.displayName} to your shopping list?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(CompletedItemReopenMode.reopenSeparately),
+              child: const Text('Reopen separately'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(CompletedItemReopenMode.mergeIntoPending),
+              child: const Text('Merge into pending'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -235,26 +256,25 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 class _HeroHeader extends StatelessWidget {
   const _HeroHeader({
     required this.week,
-    required this.itemCount,
-    required this.checkedCount,
+    required this.pendingCount,
+    required this.completedCount,
     required this.isLoading,
     required this.onPreviousWeek,
     required this.onNextWeek,
-    required this.onClearChecked,
   });
 
   final MealPlanWeek week;
-  final int itemCount;
-  final int checkedCount;
+  final int pendingCount;
+  final int completedCount;
   final bool isLoading;
   final Future<void> Function() onPreviousWeek;
   final Future<void> Function() onNextWeek;
-  final Future<void> Function()? onClearChecked;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final progress = itemCount == 0 ? 0.0 : checkedCount / itemCount;
+    final total = pendingCount + completedCount;
+    final progress = total == 0 ? 0.0 : completedCount / total;
 
     return Container(
       decoration: BoxDecoration(
@@ -292,8 +312,8 @@ class _HeroHeader extends StatelessWidget {
               ),
               _ProgressBadge(
                 progress: progress,
-                checkedCount: checkedCount,
-                itemCount: itemCount,
+                completedCount: completedCount,
+                totalCount: total,
               ),
             ],
           ),
@@ -311,13 +331,6 @@ class _HeroHeader extends StatelessWidget {
                 label: 'Next',
                 onTap: isLoading ? null : () => unawaited(onNextWeek()),
               ),
-              const Spacer(),
-              if (onClearChecked != null)
-                TextButton.icon(
-                  onPressed: () => unawaited(onClearChecked!.call()),
-                  icon: const Icon(Icons.restart_alt),
-                  label: const Text('Uncheck all'),
-                ),
             ],
           ),
         ],
@@ -329,19 +342,15 @@ class _HeroHeader extends StatelessWidget {
 class _OverviewCard extends StatelessWidget {
   const _OverviewCard({
     required this.mealCount,
-    required this.itemCount,
-    required this.checkedCount,
+    required this.pendingCount,
+    required this.completedCount,
     required this.generatedAt,
-    required this.hideCheckedItems,
-    required this.onToggleHideChecked,
   });
 
   final int mealCount;
-  final int itemCount;
-  final int checkedCount;
+  final int pendingCount;
+  final int completedCount;
   final DateTime? generatedAt;
-  final bool hideCheckedItems;
-  final VoidCallback? onToggleHideChecked;
 
   @override
   Widget build(BuildContext context) {
@@ -372,16 +381,16 @@ class _OverviewCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _StatTile(
-                    label: 'Items left',
-                    value: (itemCount - checkedCount).toString(),
+                    label: 'To buy',
+                    value: pendingCount.toString(),
                     icon: Icons.shopping_basket_outlined,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _StatTile(
-                    label: 'Done',
-                    value: checkedCount.toString(),
+                    label: 'Completed',
+                    value: completedCount.toString(),
                     icon: Icons.check_circle_outline,
                   ),
                 ),
@@ -391,7 +400,7 @@ class _OverviewCard extends StatelessWidget {
             Text(
               mealCount == 0
                   ? 'No meals are planned yet for this week.'
-                  : 'Your shopping list is generated directly from this week\'s planned meals.',
+                  : 'Pending items come from this week\'s meal plan. Completed items stay frozen as your shopping history.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             if (generatedAt != null) ...[
@@ -401,25 +410,6 @@ class _OverviewCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
-            if (onToggleHideChecked != null) ...[
-              const SizedBox(height: 14),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilterChip(
-                  selected: hideCheckedItems,
-                  onSelected: (_) => onToggleHideChecked!.call(),
-                  avatar: Icon(
-                    hideCheckedItems
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                  ),
-                  label: Text(
-                    hideCheckedItems ? 'Hide completed on' : 'Hide completed',
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -427,21 +417,37 @@ class _OverviewCard extends StatelessWidget {
   }
 }
 
-class _ChecklistCard extends StatelessWidget {
-  const _ChecklistCard({
+class _PendingSection extends StatelessWidget {
+  const _PendingSection({
+    required this.mealPlanEntries,
     required this.items,
-    required this.totalItemCount,
-    required this.checkedItemCount,
     required this.onToggle,
   });
 
+  final List<MealPlanEntry> mealPlanEntries;
   final List<ShoppingListItem> items;
-  final int totalItemCount;
-  final int checkedItemCount;
   final Future<void> Function(String itemId) onToggle;
 
   @override
   Widget build(BuildContext context) {
+    if (mealPlanEntries.isEmpty) {
+      return const _MessageCard(
+        icon: Icons.shopping_cart_outlined,
+        title: 'No planned meals for this week',
+        description:
+            'Plan at least one recipe in the meal planner and the shopping list will be generated automatically.',
+      );
+    }
+
+    if (items.isEmpty) {
+      return const _MessageCard(
+        icon: Icons.shopping_bag_outlined,
+        title: 'Nothing left to buy',
+        description:
+            'Everything for this week is currently in your completed history.',
+      );
+    }
+
     final colorScheme = Theme.of(context).colorScheme;
     return Card(
       elevation: 0,
@@ -455,7 +461,7 @@ class _ChecklistCard extends StatelessWidget {
               child: Row(
                 children: [
                   Text(
-                    'Ingredients',
+                    'To Buy',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const Spacer(),
@@ -469,7 +475,7 @@ class _ChecklistCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      '$checkedItemCount / $totalItemCount completed',
+                      '${items.length} active',
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
                   ),
@@ -477,7 +483,7 @@ class _ChecklistCard extends StatelessWidget {
               ),
             ),
             for (var index = 0; index < items.length; index++) ...[
-              _IngredientTile(item: items[index], onToggle: onToggle),
+              _PendingIngredientTile(item: items[index], onToggle: onToggle),
               if (index < items.length - 1)
                 Divider(
                   height: 1,
@@ -493,21 +499,95 @@ class _ChecklistCard extends StatelessWidget {
   }
 }
 
-class _IngredientTile extends StatelessWidget {
-  const _IngredientTile({required this.item, required this.onToggle});
+class _CompletedSection extends StatelessWidget {
+  const _CompletedSection({
+    required this.items,
+    required this.isExpanded,
+    required this.onToggleExpanded,
+    required this.onReopenItem,
+  });
+
+  final List<ShoppingListItem> items;
+  final bool isExpanded;
+  final VoidCallback onToggleExpanded;
+  final Future<void> Function(ShoppingListItem item) onReopenItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: onToggleExpanded,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Completed',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${items.length} batch${items.length == 1 ? '' : 'es'}',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded && items.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 6, 8, 10),
+                child: Text('Nothing completed yet.'),
+              ),
+            if (isExpanded)
+              for (var index = 0; index < items.length; index++) ...[
+                _CompletedIngredientTile(
+                  item: items[index],
+                  onReopenItem: onReopenItem,
+                ),
+                if (index < items.length - 1)
+                  Divider(
+                    height: 1,
+                    indent: 14,
+                    endIndent: 14,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingIngredientTile extends StatelessWidget {
+  const _PendingIngredientTile({required this.item, required this.onToggle});
 
   final ShoppingListItem item;
   final Future<void> Function(String itemId) onToggle;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-      decoration: item.isChecked ? TextDecoration.lineThrough : null,
-      color: item.isChecked ? colorScheme.onSurfaceVariant : null,
-      fontWeight: FontWeight.w600,
-    );
-
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () => unawaited(onToggle(item.id)),
@@ -516,7 +596,7 @@ class _IngredientTile extends StatelessWidget {
         child: Row(
           children: [
             Checkbox(
-              value: item.isChecked,
+              value: false,
               onChanged: (_) => unawaited(onToggle(item.id)),
             ),
             const SizedBox(width: 6),
@@ -524,38 +604,133 @@ class _IngredientTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.displayName, style: titleStyle),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.displayName,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      if (item.isNewBatch) const _TinyBadge(label: 'New'),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Text(
-                    item.isChecked ? 'Completed' : 'Tap when added to cart',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: item.isChecked
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
+                    item.origin == ShoppingListItemOrigin.reopened
+                        ? 'Reopened from completed history'
+                        : 'Tap when added to cart',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 10),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: item.isChecked
-                    ? colorScheme.primaryContainer
-                    : colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                _formatQuantity(item.totalQuantity, item.unit),
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
+            _QuantityPill(
+              label: _formatQuantity(item.totalQuantity, item.unit),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CompletedIngredientTile extends StatelessWidget {
+  const _CompletedIngredientTile({
+    required this.item,
+    required this.onReopenItem,
+  });
+
+  final ShoppingListItem item;
+  final Future<void> Function(ShoppingListItem item) onReopenItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final completedAt = item.completedAt;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => unawaited(onReopenItem(item)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.displayName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      decoration: TextDecoration.lineThrough,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    completedAt == null
+                        ? 'Completed'
+                        : 'Completed ${_formatDateTime(completedAt)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            _QuantityPill(
+              label: _formatQuantity(item.totalQuantity, item.unit),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuantityPill extends StatelessWidget {
+  const _QuantityPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _TinyBadge extends StatelessWidget {
+  const _TinyBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -634,13 +809,13 @@ class _ErrorCard extends StatelessWidget {
 class _ProgressBadge extends StatelessWidget {
   const _ProgressBadge({
     required this.progress,
-    required this.checkedCount,
-    required this.itemCount,
+    required this.completedCount,
+    required this.totalCount,
   });
 
   final double progress;
-  final int checkedCount;
-  final int itemCount;
+  final int completedCount;
+  final int totalCount;
 
   @override
   Widget build(BuildContext context) {
@@ -661,13 +836,13 @@ class _ProgressBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '$checkedCount',
+                '$completedCount',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               Text(
-                '/$itemCount',
+                '/$totalCount',
                 style: Theme.of(context).textTheme.labelSmall,
               ),
             ],

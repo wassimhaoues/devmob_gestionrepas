@@ -22,20 +22,27 @@ class ShoppingListProvider extends ChangeNotifier {
   bool _disposed = false;
   String? _uid;
   MealPlanWeek? _activeWeek;
-  ShoppingList? _shoppingList;
+  ShoppingList? _generatedShoppingList;
+  ShoppingListLocalState _localState = ShoppingListLocalState.empty;
+  List<ShoppingListItem> _pendingItems = const <ShoppingListItem>[];
+  List<ShoppingListItem> _completedItems = const <ShoppingListItem>[];
   ShoppingListProviderStatus _status = ShoppingListProviderStatus.initial;
   String? _errorMessage;
 
   String? get uid => _uid;
   MealPlanWeek? get activeWeek => _activeWeek;
-  ShoppingList? get shoppingList => _shoppingList;
-  List<ShoppingListItem> get items =>
-      _shoppingList?.items ?? const <ShoppingListItem>[];
+  ShoppingList? get shoppingList => _generatedShoppingList;
+  List<ShoppingListItem> get items => <ShoppingListItem>[
+    ..._pendingItems,
+    ..._completedItems,
+  ];
+  List<ShoppingListItem> get pendingItems => _pendingItems;
+  List<ShoppingListItem> get completedItems => _completedItems;
   ShoppingListProviderStatus get status => _status;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _status == ShoppingListProviderStatus.loading;
   bool get hasItems => items.isNotEmpty;
-  int get checkedItemCount => items.where((item) => item.isChecked).length;
+  int get checkedItemCount => _completedItems.length;
 
   Future<void> loadForWeek({
     required String uid,
@@ -49,31 +56,26 @@ class ShoppingListProvider extends ChangeNotifier {
     _safeNotify();
 
     try {
-      final generatedList = await _generatorService.generateForWeek(
+      _generatedShoppingList = await _generatorService.generateForWeek(
         uid: uid,
         weekStartDate: week.startDate,
         entries: entries,
       );
-      final checkedStates = await _localStateService.readCheckedItemStates(
+      _localState = await _localStateService.readState(
         uid: uid,
         weekStartDate: week.startDate,
       );
-      _shoppingList = generatedList.copyWith(
-        items: generatedList.items
-            .map(
-              (item) => item.copyWith(
-                isChecked: _shouldKeepCheckedState(
-                  item: item,
-                  checkedState: checkedStates[item.id],
-                ),
-              ),
-            )
-            .toList(),
-      );
+      _rebuildVisibleItems();
       _status = ShoppingListProviderStatus.ready;
       _safeNotify();
-    } catch (error) {
-      _shoppingList = null;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'ShoppingListProvider.loadForWeek failed: $error\n$stackTrace',
+      );
+      _generatedShoppingList = null;
+      _localState = ShoppingListLocalState.empty;
+      _pendingItems = const <ShoppingListItem>[];
+      _completedItems = const <ShoppingListItem>[];
       _status = ShoppingListProviderStatus.error;
       _errorMessage = 'Unable to generate the shopping list.';
       _safeNotify();
@@ -88,56 +90,143 @@ class ShoppingListProvider extends ChangeNotifier {
     await loadForWeek(uid: uid, week: week, entries: entries);
   }
 
-  Future<void> toggleItem(String itemId) async {
+  Future<void> completePendingItem(String itemId) async {
     final currentUid = _uid;
     final currentWeek = _activeWeek;
-    final currentList = _shoppingList;
-    if (currentUid == null || currentWeek == null || currentList == null) {
+    if (currentUid == null || currentWeek == null) {
       return;
     }
 
-    final updatedItems = currentList.items
-        .map(
-          (item) => item.id == itemId
-              ? item.copyWith(isChecked: !item.isChecked)
-              : item,
-        )
-        .toList();
-    _shoppingList = currentList.copyWith(items: updatedItems);
-    _errorMessage = null;
-    _safeNotify();
-
-    try {
-      await _persistCheckedState(
-        uid: currentUid,
-        week: currentWeek,
-        items: updatedItems,
-      );
-    } catch (error) {
-      _errorMessage = 'Unable to save shopping checklist state.';
-      _safeNotify();
+    final pendingItem = _pendingItems.cast<ShoppingListItem?>().firstWhere(
+      (item) => item?.id == itemId,
+      orElse: () => null,
+    );
+    if (pendingItem == null) {
+      return;
     }
+
+    final now = DateTime.now();
+    final completedItem = pendingItem.copyWith(
+      id: ShoppingListItem.buildBatchId(
+        ingredientKey: pendingItem.ingredientKey,
+        status: ShoppingListItemStatus.completed,
+        origin: pendingItem.origin,
+        timestamp: now,
+      ),
+      status: ShoppingListItemStatus.completed,
+      isNewBatch: false,
+      completedAt: now,
+    );
+
+    final separatePendingItems = List<ShoppingListItem>.from(
+      _localState.separatePendingItems,
+    );
+    if (!pendingItem.isGenerated) {
+      separatePendingItems.removeWhere((item) => item.id == pendingItem.id);
+    }
+
+    _localState = _localState.copyWith(
+      completedItems: <ShoppingListItem>[
+        ..._localState.completedItems,
+        completedItem,
+      ],
+      separatePendingItems: separatePendingItems,
+    );
+
+    await _persistAndRebuild(uid: currentUid, week: currentWeek);
+  }
+
+  Future<void> reopenCompletedItem({
+    required String itemId,
+    required CompletedItemReopenMode mode,
+  }) async {
+    final currentUid = _uid;
+    final currentWeek = _activeWeek;
+    if (currentUid == null || currentWeek == null) {
+      return;
+    }
+
+    final completedItem = _completedItems.cast<ShoppingListItem?>().firstWhere(
+      (item) => item?.id == itemId,
+      orElse: () => null,
+    );
+    if (completedItem == null) {
+      return;
+    }
+
+    final updatedCompletedItems = List<ShoppingListItem>.from(
+      _localState.completedItems,
+    )..removeWhere((item) => item.id == itemId);
+
+    List<ShoppingListItem> separatePendingItems = List<ShoppingListItem>.from(
+      _localState.separatePendingItems,
+    );
+
+    if (mode == CompletedItemReopenMode.reopenSeparately) {
+      final reopenedItem = completedItem.copyWith(
+        id: ShoppingListItem.buildBatchId(
+          ingredientKey: completedItem.ingredientKey,
+          status: ShoppingListItemStatus.pending,
+          origin: ShoppingListItemOrigin.reopened,
+          timestamp: DateTime.now(),
+        ),
+        status: ShoppingListItemStatus.pending,
+        origin: ShoppingListItemOrigin.reopened,
+        isNewBatch: true,
+        completedAt: null,
+      );
+      separatePendingItems = <ShoppingListItem>[
+        ...separatePendingItems,
+        reopenedItem,
+      ];
+    }
+
+    _localState = _localState.copyWith(
+      completedItems: updatedCompletedItems,
+      separatePendingItems: separatePendingItems,
+    );
+
+    await _persistAndRebuild(uid: currentUid, week: currentWeek);
   }
 
   Future<void> clearCheckedItems() async {
     final currentUid = _uid;
     final currentWeek = _activeWeek;
-    final currentList = _shoppingList;
-    if (currentUid == null || currentWeek == null || currentList == null) {
+    if (currentUid == null || currentWeek == null) {
       return;
     }
 
-    final updatedItems = currentList.items
-        .map((item) => item.copyWith(isChecked: false))
-        .toList();
-    _shoppingList = currentList.copyWith(items: updatedItems);
+    _localState = _localState.copyWith(
+      completedItems: const <ShoppingListItem>[],
+    );
+    await _persistAndRebuild(uid: currentUid, week: currentWeek);
+  }
+
+  void reset() {
+    _uid = null;
+    _activeWeek = null;
+    _generatedShoppingList = null;
+    _localState = ShoppingListLocalState.empty;
+    _pendingItems = const <ShoppingListItem>[];
+    _completedItems = const <ShoppingListItem>[];
+    _status = ShoppingListProviderStatus.initial;
     _errorMessage = null;
+    _safeNotify();
+  }
+
+  Future<void> _persistAndRebuild({
+    required String uid,
+    required MealPlanWeek week,
+  }) async {
+    _errorMessage = null;
+    _rebuildVisibleItems();
     _safeNotify();
 
     try {
-      await _localStateService.clearCheckedItemIds(
-        uid: currentUid,
-        weekStartDate: currentWeek.startDate,
+      await _localStateService.writeState(
+        uid: uid,
+        weekStartDate: week.startDate,
+        state: _localState,
       );
     } catch (error) {
       _errorMessage = 'Unable to save shopping checklist state.';
@@ -145,49 +234,72 @@ class ShoppingListProvider extends ChangeNotifier {
     }
   }
 
-  void reset() {
-    _uid = null;
-    _activeWeek = null;
-    _shoppingList = null;
-    _status = ShoppingListProviderStatus.initial;
-    _errorMessage = null;
-    _safeNotify();
-  }
+  void _rebuildVisibleItems() {
+    final generatedItems =
+        _generatedShoppingList?.items ?? const <ShoppingListItem>[];
+    final completedItems =
+        List<ShoppingListItem>.from(_localState.completedItems)..sort((a, b) {
+          final aTime = a.completedAt ?? a.createdAt;
+          final bTime = b.completedAt ?? b.createdAt;
+          return bTime.compareTo(aTime);
+        });
+    final separatePendingItems = List<ShoppingListItem>.from(
+      _localState.separatePendingItems,
+    )..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-  Future<void> _persistCheckedState({
-    required String uid,
-    required MealPlanWeek week,
-    required List<ShoppingListItem> items,
-  }) async {
-    final checkedStates = items
-        .where((item) => item.isChecked)
-        .map(
-          (item) => MapEntry(
-            item.id,
-            CheckedShoppingItemState(
-              itemId: item.id,
-              totalQuantity: item.totalQuantity,
-            ),
-          ),
-        );
-    await _localStateService.writeCheckedItemStates(
-      uid: uid,
-      weekStartDate: week.startDate,
-      itemStates: Map<String, CheckedShoppingItemState>.fromEntries(
-        checkedStates,
-      ),
-    );
-  }
-
-  bool _shouldKeepCheckedState({
-    required ShoppingListItem item,
-    required CheckedShoppingItemState? checkedState,
-  }) {
-    if (checkedState == null) {
-      return false;
+    final completedQuantityByKey = <String, double>{};
+    for (final item in completedItems) {
+      completedQuantityByKey.update(
+        item.ingredientKey,
+        (value) => value + item.totalQuantity,
+        ifAbsent: () => item.totalQuantity,
+      );
     }
 
-    return checkedState.totalQuantity == item.totalQuantity;
+    final separatePendingQuantityByKey = <String, double>{};
+    for (final item in separatePendingItems) {
+      separatePendingQuantityByKey.update(
+        item.ingredientKey,
+        (value) => value + item.totalQuantity,
+        ifAbsent: () => item.totalQuantity,
+      );
+    }
+
+    final generatedPendingItems = <ShoppingListItem>[];
+    for (final item in generatedItems) {
+      final completedQuantity = completedQuantityByKey[item.ingredientKey] ?? 0;
+      final separatePendingQuantity =
+          separatePendingQuantityByKey[item.ingredientKey] ?? 0;
+      final remainingQuantity =
+          item.totalQuantity - completedQuantity - separatePendingQuantity;
+      if (remainingQuantity <= 0) {
+        continue;
+      }
+
+      generatedPendingItems.add(
+        item.copyWith(
+          id: item.ingredientKey,
+          ingredientKey: item.ingredientKey,
+          totalQuantity: remainingQuantity,
+          status: ShoppingListItemStatus.pending,
+          origin: ShoppingListItemOrigin.generated,
+          isNewBatch: completedQuantity > 0,
+          createdAt: _generatedShoppingList?.generatedAt ?? DateTime.now(),
+          completedAt: null,
+        ),
+      );
+    }
+
+    generatedPendingItems.sort(
+      (a, b) =>
+          a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+    );
+
+    _pendingItems = <ShoppingListItem>[
+      ...generatedPendingItems,
+      ...separatePendingItems,
+    ];
+    _completedItems = completedItems;
   }
 
   void _safeNotify() {

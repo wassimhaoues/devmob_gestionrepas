@@ -1,26 +1,45 @@
-class CheckedShoppingItemState {
-  const CheckedShoppingItemState({
-    required this.itemId,
-    required this.totalQuantity,
+import '../../models/shopping_list_item.dart';
+
+class ShoppingListLocalState {
+  const ShoppingListLocalState({
+    required this.completedItems,
+    required this.separatePendingItems,
   });
 
-  final String itemId;
-  final double totalQuantity;
+  final List<ShoppingListItem> completedItems;
+  final List<ShoppingListItem> separatePendingItems;
+
+  ShoppingListLocalState copyWith({
+    List<ShoppingListItem>? completedItems,
+    List<ShoppingListItem>? separatePendingItems,
+  }) {
+    return ShoppingListLocalState(
+      completedItems: completedItems ?? this.completedItems,
+      separatePendingItems: separatePendingItems ?? this.separatePendingItems,
+    );
+  }
+
+  static const empty = ShoppingListLocalState(
+    completedItems: <ShoppingListItem>[],
+    separatePendingItems: <ShoppingListItem>[],
+  );
 }
 
+enum CompletedItemReopenMode { mergeIntoPending, reopenSeparately }
+
 abstract interface class LocalShoppingListStateService {
-  Future<Map<String, CheckedShoppingItemState>> readCheckedItemStates({
+  Future<ShoppingListLocalState> readState({
     required String uid,
     required DateTime weekStartDate,
   });
 
-  Future<void> writeCheckedItemStates({
+  Future<void> writeState({
     required String uid,
     required DateTime weekStartDate,
-    required Map<String, CheckedShoppingItemState> itemStates,
+    required ShoppingListLocalState state,
   });
 
-  Future<void> clearCheckedItemIds({
+  Future<void> clearState({
     required String uid,
     required DateTime weekStartDate,
   });

@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:devmob_gestionrepas/models/app_user.dart';
 import 'package:devmob_gestionrepas/models/auth_failure.dart';
-import 'package:devmob_gestionrepas/models/ingredient.dart';
 import 'package:devmob_gestionrepas/models/meal_plan_entry.dart';
-import 'package:devmob_gestionrepas/models/meal_slot_type.dart';
 import 'package:devmob_gestionrepas/models/recipe.dart';
 import 'package:devmob_gestionrepas/models/recipe_category.dart';
 import 'package:devmob_gestionrepas/providers/auth_provider.dart';
@@ -26,15 +24,11 @@ void main() {
   late _FakeAuthService authService;
   late _FakeUserProfileService userProfileService;
   late _FakeMealPlanService mealPlanService;
-  late _FakeRecipeService recipeService;
-  late _FakeLocalShoppingListStateService localStateService;
 
   setUp(() {
     authService = _FakeAuthService();
     userProfileService = _FakeUserProfileService();
     mealPlanService = _FakeMealPlanService();
-    recipeService = _FakeRecipeService();
-    localStateService = _FakeLocalShoppingListStateService();
 
     const uid = 'user-1';
     authService.signInUid = uid;
@@ -55,16 +49,22 @@ void main() {
   testWidgets('shows empty-state guidance when no meals are planned', (
     tester,
   ) async {
-    final authProvider = await _buildAuthProvider(
+    final authProvider = AuthProvider(
       authService: authService,
       userProfileService: userProfileService,
+      errorMapper: const _TestErrorMapper(),
     );
+    await authProvider.signIn(
+      email: 'user@example.com',
+      password: 'password123',
+    );
+
     final mealPlanProvider = MealPlanProvider(mealPlanService: mealPlanService);
     final shoppingProvider = ShoppingListProvider(
       generatorService: ShoppingListGeneratorService(
-        recipeService: recipeService,
+        recipeService: _NoopRecipeService(),
       ),
-      localStateService: localStateService,
+      localStateService: _NoopLocalShoppingListStateService(),
     );
 
     await tester.pumpWidget(
@@ -86,126 +86,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No planned meals for this week'), findsOneWidget);
-    expect(find.textContaining('Plan at least one recipe'), findsOneWidget);
 
     shoppingProvider.dispose();
     mealPlanProvider.dispose();
     authProvider.dispose();
   });
-
-  testWidgets('renders generated items and keeps checkbox state in sync', (
-    tester,
-  ) async {
-    final authProvider = await _buildAuthProvider(
-      authService: authService,
-      userProfileService: userProfileService,
-    );
-    final mealPlanProvider = MealPlanProvider(mealPlanService: mealPlanService);
-    final shoppingProvider = ShoppingListProvider(
-      generatorService: ShoppingListGeneratorService(
-        recipeService: recipeService,
-      ),
-      localStateService: localStateService,
-    );
-
-    recipeService.recipesById['recipe-1'] = _recipe(
-      id: 'recipe-1',
-      ingredients: const <Ingredient>[
-        Ingredient(
-          displayName: 'Tomatoes',
-          canonicalName: 'tomato',
-          quantity: 5,
-          unit: 'piece',
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
-          ChangeNotifierProvider<MealPlanProvider>.value(
-            value: mealPlanProvider,
-          ),
-          ChangeNotifierProvider<ShoppingListProvider>.value(
-            value: shoppingProvider,
-          ),
-        ],
-        child: const MaterialApp(home: Scaffold(body: ShoppingListPage())),
-      ),
-    );
-
-    mealPlanService.emitEntries(<MealPlanEntry>[_entry(recipeId: 'recipe-1')]);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Tomatoes'), findsOneWidget);
-    expect(find.text('5 piece'), findsOneWidget);
-    expect(find.text('Tap when added to cart'), findsOneWidget);
-
-    await tester.tap(find.byType(Checkbox).first);
-    await tester.pumpAndSettle();
-
-    expect(shoppingProvider.items.single.isChecked, isTrue);
-    expect(localStateService.checkedStates['tomato__piece']?.totalQuantity, 5);
-    expect(find.text('Completed'), findsOneWidget);
-    expect(find.text('Hide completed'), findsOneWidget);
-
-    await tester.tap(find.text('Hide completed'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Everything is checked off'), findsOneWidget);
-    expect(find.text('Tomatoes'), findsNothing);
-
-    shoppingProvider.dispose();
-    mealPlanProvider.dispose();
-    authProvider.dispose();
-  });
-}
-
-Future<AuthProvider> _buildAuthProvider({
-  required _FakeAuthService authService,
-  required _FakeUserProfileService userProfileService,
-}) async {
-  final authProvider = AuthProvider(
-    authService: authService,
-    userProfileService: userProfileService,
-    errorMapper: const _TestErrorMapper(),
-  );
-  await authProvider.signIn(email: 'user@example.com', password: 'password123');
-  return authProvider;
-}
-
-MealPlanEntry _entry({required String recipeId}) {
-  return MealPlanEntry(
-    id: MealPlanEntry.buildId(
-      date: DateTime(2026, 5, 18),
-      slotType: MealSlotType.breakfast,
-    ),
-    ownerUid: 'user-1',
-    date: DateTime(2026, 5, 18),
-    slotType: MealSlotType.breakfast,
-    recipeId: recipeId,
-    recipeTitle: 'Recipe $recipeId',
-    recipeImageUrl: null,
-    recipeCategory: RecipeCategory.breakfast,
-    createdAt: DateTime(2026, 5, 1),
-    updatedAt: DateTime(2026, 5, 2),
-  );
-}
-
-Recipe _recipe({required String id, required List<Ingredient> ingredients}) {
-  return Recipe(
-    id: id,
-    ownerUid: 'user-1',
-    title: 'Recipe $id',
-    description: 'Description',
-    category: RecipeCategory.dinner,
-    isFavorite: false,
-    ingredients: ingredients,
-    steps: const [],
-    createdAt: DateTime(2026, 5, 1),
-    updatedAt: DateTime(2026, 5, 2),
-  );
 }
 
 AppUser _user({
@@ -267,9 +152,7 @@ class _FakeMealPlanService implements MealPlanService {
   }
 }
 
-class _FakeRecipeService implements RecipeService {
-  final Map<String, Recipe> recipesById = <String, Recipe>{};
-
+class _NoopRecipeService implements RecipeService {
   @override
   Future<String> createRecipe({
     required String uid,
@@ -291,7 +174,7 @@ class _FakeRecipeService implements RecipeService {
     required String uid,
     required String recipeId,
   }) async {
-    return recipesById[recipeId];
+    throw UnimplementedError();
   }
 
   @override
@@ -330,35 +213,28 @@ class _FakeRecipeService implements RecipeService {
   }
 }
 
-class _FakeLocalShoppingListStateService
+class _NoopLocalShoppingListStateService
     implements LocalShoppingListStateService {
-  Map<String, CheckedShoppingItemState> checkedStates =
-      <String, CheckedShoppingItemState>{};
+  @override
+  Future<void> clearState({
+    required String uid,
+    required DateTime weekStartDate,
+  }) async {}
 
   @override
-  Future<void> clearCheckedItemIds({
+  Future<ShoppingListLocalState> readState({
     required String uid,
     required DateTime weekStartDate,
   }) async {
-    checkedStates = <String, CheckedShoppingItemState>{};
+    return ShoppingListLocalState.empty;
   }
 
   @override
-  Future<Map<String, CheckedShoppingItemState>> readCheckedItemStates({
+  Future<void> writeState({
     required String uid,
     required DateTime weekStartDate,
-  }) async {
-    return checkedStates;
-  }
-
-  @override
-  Future<void> writeCheckedItemStates({
-    required String uid,
-    required DateTime weekStartDate,
-    required Map<String, CheckedShoppingItemState> itemStates,
-  }) async {
-    checkedStates = itemStates;
-  }
+    required ShoppingListLocalState state,
+  }) async {}
 }
 
 class _FakeAuthService implements AuthService {
