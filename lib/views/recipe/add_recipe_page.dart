@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
@@ -10,6 +8,8 @@ import '../../models/recipe_category.dart';
 import '../../models/recipe_image_selection.dart';
 import '../../models/recipe_step.dart';
 import '../../providers/recipe_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/recipe_editor_widgets.dart';
 
 const String addRecipeRoute = '/recipes/add';
 
@@ -38,10 +38,10 @@ class _AddRecipePageState extends State<AddRecipePage> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    for (final ingredient in _ingredients) {
+    for (final _IngredientDraft ingredient in _ingredients) {
       ingredient.dispose();
     }
-    for (final step in _steps) {
+    for (final TextEditingController step in _steps) {
       step.dispose();
     }
     super.dispose();
@@ -49,7 +49,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
 
   Future<void> _submit() async {
     final provider = context.read<RecipeProvider>();
-    final ingredients = _ingredients.map((draft) {
+    final ingredients = _ingredients.map((_IngredientDraft draft) {
       final quantity = double.tryParse(
         draft.quantityController.text.trim().replaceAll(',', '.'),
       );
@@ -92,22 +92,35 @@ class _AddRecipePageState extends State<AddRecipePage> {
     final isLoading = provider.isLoading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Recipe')),
+      appBar: AppBar(title: const Text('Add recipe')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _SectionCard(
-            title: 'Recipe Information',
-            children: [
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: <Widget>[
+          const _EditorIntro(
+            title: 'Build a recipe worth reusing',
+            description:
+                'Capture the essentials now so planning and shopping stay easy later.',
+          ),
+          const SizedBox(height: 16),
+          RecipeEditorSection(
+            title: 'Recipe information',
+            subtitle: 'Start with the core details for this dish.',
+            children: <Widget>[
               TextField(
                 controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  hintText: 'Ex: Olive toast with herbs',
+                ),
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  hintText: 'A short description for your future self',
+                ),
                 minLines: 2,
                 maxLines: 4,
               ),
@@ -117,28 +130,30 @@ class _AddRecipePageState extends State<AddRecipePage> {
                 decoration: const InputDecoration(labelText: 'Category'),
                 items: RecipeCategory.values
                     .map(
-                      (category) => DropdownMenuItem<RecipeCategory>(
-                        value: category,
-                        child: Text(category.label),
-                      ),
+                      (RecipeCategory category) =>
+                          DropdownMenuItem<RecipeCategory>(
+                            value: category,
+                            child: Text(category.label),
+                          ),
                     )
                     .toList(),
-                onChanged: (value) {
+                onChanged: (RecipeCategory? value) {
                   setState(() => _selectedCategory = value);
                 },
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _SectionCard(
+          RecipeEditorSection(
             title: 'Ingredients',
+            subtitle: 'Use clear names so the shopping list stays readable.',
             trailing: IconButton(
               onPressed: _addIngredient,
               icon: const Icon(Icons.add),
               tooltip: 'Add ingredient',
             ),
-            children: [
-              for (var i = 0; i < _ingredients.length; i++)
+            children: <Widget>[
+              for (int i = 0; i < _ingredients.length; i++)
                 _IngredientFields(
                   index: i,
                   draft: _ingredients[i],
@@ -148,15 +163,16 @@ class _AddRecipePageState extends State<AddRecipePage> {
             ],
           ),
           const SizedBox(height: 12),
-          _SectionCard(
-            title: 'Preparation Steps',
+          RecipeEditorSection(
+            title: 'Preparation steps',
+            subtitle: 'Keep each instruction short and actionable.',
             trailing: IconButton(
               onPressed: _addStep,
               icon: const Icon(Icons.add),
               tooltip: 'Add step',
             ),
-            children: [
-              for (var i = 0; i < _steps.length; i++)
+            children: <Widget>[
+              for (int i = 0; i < _steps.length; i++)
                 _StepField(
                   index: i,
                   controller: _steps[i],
@@ -166,11 +182,13 @@ class _AddRecipePageState extends State<AddRecipePage> {
             ],
           ),
           const SizedBox(height: 12),
-          _SectionCard(
-            title: 'Optional Recipe Photo',
-            children: [
-              _RecipePhotoField(
-                selectedImage: _selectedImage,
+          RecipeEditorSection(
+            title: 'Optional recipe photo',
+            subtitle: 'A photo makes the recipe easier to spot while planning.',
+            children: <Widget>[
+              RecipeEditorPhotoField(
+                selectedBytes: _selectedImage?.bytes,
+                existingImageUrl: null,
                 onPickImage: isLoading ? null : _pickImage,
                 onRemoveImage: _selectedImage == null
                     ? null
@@ -178,17 +196,16 @@ class _AddRecipePageState extends State<AddRecipePage> {
               ),
             ],
           ),
-          if (_submitErrors.isNotEmpty) ...[
+          if (_submitErrors.isNotEmpty) ...<Widget>[
             const SizedBox(height: 12),
-            _ErrorPanel(errors: _submitErrors),
+            RecipeEditorErrorPanel(errors: _submitErrors),
           ],
           const SizedBox(height: 20),
-          FilledButton.icon(
+          ElevatedButton.icon(
             onPressed: isLoading ? null : _submit,
             icon: const Icon(Icons.save),
-            label: const Text('Save Recipe'),
+            label: Text(isLoading ? 'Saving recipe...' : 'Save recipe'),
           ),
-          const SizedBox(height: 12),
         ],
       ),
     );
@@ -237,134 +254,41 @@ class _AddRecipePageState extends State<AddRecipePage> {
   }
 }
 
-class _RecipePhotoField extends StatelessWidget {
-  const _RecipePhotoField({
-    required this.selectedImage,
-    required this.onPickImage,
-    required this.onRemoveImage,
-  });
-
-  final RecipeImageSelection? selectedImage;
-  final Future<void> Function()? onPickImage;
-  final VoidCallback? onRemoveImage;
-
-  @override
-  Widget build(BuildContext context) {
-    final preview = selectedImage == null
-        ? const _EmptyPhotoPreview()
-        : _SelectedPhotoPreview(bytes: selectedImage!.bytes);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(height: 180, child: preview),
-        const SizedBox(height: 12),
-        Text(
-          'Supported: JPG, PNG, WEBP. Source image must be 10 MB or smaller.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onPickImage == null ? null : () => onPickImage!(),
-                icon: const Icon(Icons.photo_library_outlined),
-                label: Text(
-                  selectedImage == null ? 'Choose Photo' : 'Replace Photo',
-                ),
-              ),
-            ),
-            if (onRemoveImage != null) ...[
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: onRemoveImage,
-                tooltip: 'Remove photo',
-                icon: const Icon(Icons.delete_outline),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _EmptyPhotoPreview extends StatelessWidget {
-  const _EmptyPhotoPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.image_outlined, size: 40),
-            SizedBox(height: 8),
-            Text('No photo selected'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectedPhotoPreview extends StatelessWidget {
-  const _SelectedPhotoPreview({required this.bytes});
-
-  final Uint8List bytes;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.memory(bytes, fit: BoxFit.cover),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.children,
-    this.trailing,
-  });
+class _EditorIntro extends StatelessWidget {
+  const _EditorIntro({required this.title, required this.description});
 
   final String title;
-  final Widget? trailing;
-  final List<Widget> children;
+  final String description;
 
   @override
   Widget build(BuildContext context) {
-    final headerChildren = <Widget>[
-      Expanded(
-        child: Text(title, style: Theme.of(context).textTheme.titleMedium),
-      ),
-    ];
-    if (trailing != null) {
-      headerChildren.add(trailing!);
-    }
-
-    return Card(
-      elevation: 0,
-      color: Theme.of(
-        context,
-      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(children: headerChildren),
-            const SizedBox(height: 8),
-            ...children,
-          ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.primary, AppColors.primaryDark],
         ),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFE4F4EA)),
+          ),
+        ],
       ),
     );
   }
@@ -385,52 +309,58 @@ class _IngredientFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text('Ingredient ${index + 1}'),
-                const Spacer(),
-                if (canRemove)
-                  IconButton(
-                    onPressed: onRemove,
-                    icon: const Icon(Icons.remove_circle_outline),
-                    tooltip: 'Remove ingredient',
+    return RecipeEditorBlock(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text('Ingredient ${index + 1}'),
+              const Spacer(),
+              if (canRemove)
+                IconButton(
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.remove_circle_outline),
+                  tooltip: 'Remove ingredient',
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: draft.nameController,
+            decoration: const InputDecoration(
+              labelText: 'Name',
+              hintText: 'Ex: Black olives',
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: draft.quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
-              ],
-            ),
-            TextField(
-              controller: draft.nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: draft.quantityController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(labelText: 'Quantity'),
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity',
+                    hintText: '1',
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: draft.unitController,
-                    decoration: const InputDecoration(labelText: 'Unit'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: draft.unitController,
+                  decoration: const InputDecoration(
+                    labelText: 'Unit',
+                    hintText: 'cup, g, tbsp',
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -451,65 +381,33 @@ class _StepField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text('Step ${index + 1}'),
-                const Spacer(),
-                if (canRemove)
-                  IconButton(
-                    onPressed: onRemove,
-                    icon: const Icon(Icons.remove_circle_outline),
-                    tooltip: 'Remove step',
-                  ),
-              ],
-            ),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(labelText: 'Instruction'),
-              minLines: 1,
-              maxLines: 3,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorPanel extends StatelessWidget {
-  const _ErrorPanel({required this.errors});
-
-  final List<String> errors;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).colorScheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: errors
-              .map(
-                (error) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    '• $error',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onErrorContainer,
-                    ),
-                  ),
+    return RecipeEditorBlock(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text('Step ${index + 1}'),
+              const Spacer(),
+              if (canRemove)
+                IconButton(
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.remove_circle_outline),
+                  tooltip: 'Remove step',
                 ),
-              )
-              .toList(),
-        ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Instruction',
+              hintText: 'Describe this step clearly',
+            ),
+            minLines: 2,
+            maxLines: 4,
+          ),
+        ],
       ),
     );
   }

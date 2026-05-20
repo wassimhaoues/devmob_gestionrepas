@@ -14,14 +14,15 @@ import 'services/auth/user_profile_service.dart';
 import 'services/mealplan/firestore_meal_plan_service.dart';
 import 'services/mealplan/meal_plan_service.dart';
 import 'services/recipe/default_recipe_image_processor.dart';
-import 'services/recipe/firestore_recipe_service.dart';
 import 'services/recipe/firebase_recipe_image_storage_service.dart';
+import 'services/recipe/firestore_recipe_service.dart';
 import 'services/recipe/recipe_image_processor.dart';
 import 'services/recipe/recipe_image_storage_service.dart';
 import 'services/recipe/recipe_service.dart';
 import 'services/shopping/local_shopping_list_state_service.dart';
 import 'services/shopping/shared_prefs_shopping_list_state_service.dart';
 import 'services/shopping/shopping_list_generator_service.dart';
+import 'theme/app_theme.dart';
 import 'views/auth/auth_gate.dart';
 import 'views/auth/forgot_password_page.dart';
 import 'views/auth/login_page.dart';
@@ -59,18 +60,18 @@ void main() async {
           create: (_) => DefaultRecipeImageProcessor(),
         ),
         Provider<ShoppingListGeneratorService>(
-          create: (context) => ShoppingListGeneratorService(
+          create: (BuildContext context) => ShoppingListGeneratorService(
             recipeService: context.read<RecipeService>(),
           ),
         ),
         ChangeNotifierProvider<AuthProvider>(
-          create: (context) => AuthProvider(
+          create: (BuildContext context) => AuthProvider(
             authService: context.read<AuthService>(),
             userProfileService: context.read<UserProfileService>(),
           )..initialize(),
         ),
         ChangeNotifierProvider<RecipeProvider>(
-          create: (context) => RecipeProvider(
+          create: (BuildContext context) => RecipeProvider(
             recipeService: context.read<RecipeService>(),
             mealPlanService: context.read<MealPlanService>(),
             recipeImageStorageService: context
@@ -79,12 +80,12 @@ void main() async {
           ),
         ),
         ChangeNotifierProvider<MealPlanProvider>(
-          create: (context) => MealPlanProvider(
+          create: (BuildContext context) => MealPlanProvider(
             mealPlanService: context.read<MealPlanService>(),
           ),
         ),
         ChangeNotifierProvider<ShoppingListProvider>(
-          create: (context) => ShoppingListProvider(
+          create: (BuildContext context) => ShoppingListProvider(
             generatorService: context.read<ShoppingListGeneratorService>(),
             localStateService: context.read<LocalShoppingListStateService>(),
           ),
@@ -102,11 +103,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DEVMOB-GestionRepas',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
-      ),
-      routes: {
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      routes: <String, WidgetBuilder>{
         authGateRoute: (_) => const AuthGate(),
         loginRoute: (_) => const LoginPage(),
         registerRoute: (_) => const RegisterPage(),

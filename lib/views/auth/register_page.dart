@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/auth_status.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth/auth_validators.dart';
+import '../../widgets/auth_shell.dart';
 
 const String registerRoute = '/register';
 
@@ -61,101 +62,107 @@ class _RegisterPageState extends State<RegisterPage> {
     final authProvider = context.watch<AuthProvider>();
     final isBusy = authProvider.isLoading;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create account')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    controller: _displayNameController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Display name',
-                    ),
-                    validator: AuthValidators.validateDisplayName,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: AuthValidators.validateEmail,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                      ),
-                    ),
-                    validator: AuthValidators.validatePassword,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _confirmPasswordController,
-                    obscureText: _obscureConfirmPassword,
-                    textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm password',
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setState(
-                            () => _obscureConfirmPassword =
-                                !_obscureConfirmPassword,
-                          );
-                        },
-                        icon: Icon(
-                          _obscureConfirmPassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                      ),
-                    ),
-                    validator: (value) =>
-                        AuthValidators.validateConfirmPassword(
-                          password: _passwordController.text,
-                          confirmPassword: value ?? '',
-                        ),
-                    onFieldSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: isBusy ? null : _submit,
-                    child: const Text('Create account'),
-                  ),
-                  if (authProvider.failure != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      authProvider.failure!.message,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ],
-              ),
-            ),
+    return AuthShell(
+      title: 'Create your account',
+      subtitle:
+          'Set up your cooking workspace so recipes, meal plans, and shopping lists stay connected.',
+      topBadgeIcon: Icons.auto_awesome_rounded,
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          const Text('Already have an account?'),
+          TextButton(
+            onPressed: isBusy ? null : () => Navigator.of(context).pop(),
+            child: const Text('Sign in'),
           ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            TextFormField(
+              controller: _displayNameController,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Display name',
+                hintText: 'How should we call you?',
+              ),
+              validator: AuthValidators.validateDisplayName,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                hintText: 'you@example.com',
+              ),
+              validator: AuthValidators.validateEmail,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                hintText: 'Choose a secure password',
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  ),
+                ),
+              ),
+              validator: AuthValidators.validatePassword,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _confirmPasswordController,
+              obscureText: _obscureConfirmPassword,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: 'Confirm password',
+                hintText: 'Repeat your password',
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                    );
+                  },
+                  icon: Icon(
+                    _obscureConfirmPassword
+                        ? Icons.visibility
+                        : Icons.visibility_off,
+                  ),
+                ),
+              ),
+              validator: (String? value) =>
+                  AuthValidators.validateConfirmPassword(
+                    password: _passwordController.text,
+                    confirmPassword: value ?? '',
+                  ),
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: isBusy ? null : _submit,
+              child: Text(isBusy ? 'Creating account...' : 'Create account'),
+            ),
+            if (authProvider.failure != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(
+                authProvider.failure!.message,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
         ),
       ),
     );

@@ -9,6 +9,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/meal_plan_provider.dart';
 import '../../providers/recipe_provider.dart';
 import '../../providers/shopping_list_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/app_panels.dart';
 import '../mealplan/meal_plan_page.dart';
 import '../recipe/add_recipe_page.dart';
 import '../recipe/recipe_list_page.dart';
@@ -51,7 +53,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
-        actions: [
+        actions: <Widget>[
           IconButton(
             onPressed: isRefreshingModules ? null : _refreshVisibleData,
             icon: const Icon(Icons.refresh),
@@ -66,7 +68,7 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       body: IndexedStack(
         index: _selectedIndex,
-        children: [
+        children: <Widget>[
           _HomeTab(
             user: authProvider.currentUser,
             mealPlanProvider: mealPlanProvider,
@@ -96,10 +98,10 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
+        onDestinationSelected: (int index) {
           setState(() => _selectedIndex = index);
         },
-        destinations: const [
+        destinations: const <NavigationDestination>[
           NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(
             icon: Icon(Icons.menu_book_outlined),
@@ -241,9 +243,10 @@ class _HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final recipes = recipeProvider.recipes;
-    final favoriteCount = recipes.where((recipe) => recipe.isFavorite).length;
+    final favoriteCount = recipes
+        .where((Recipe recipe) => recipe.isFavorite)
+        .length;
     final recentRecipes = recipes.take(3).toList();
     final greeting = _buildGreeting(user);
     final plannedMealCount = mealPlanProvider.plannedMealCount;
@@ -272,21 +275,22 @@ class _HomeTab extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: <Color>[
-            colorScheme.primaryContainer.withValues(alpha: 0.42),
-            colorScheme.surface,
+            AppColors.primary.withValues(alpha: 0.16),
+            AppColors.background,
           ],
         ),
       ),
       child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(greeting, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text(
-            'Manage recipes, plan your week, and generate your next shopping list from one place.',
-            style: Theme.of(context).textTheme.bodyLarge,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: <Widget>[
+          _DashboardHero(
+            greeting: greeting,
+            initials: _buildInitials(user),
+            recipeCount: recipes.length,
+            favoriteCount: favoriteCount,
+            plannedMealCount: plannedMealCount,
           ),
-          if (recipeProvider.status == RecipeProviderStatus.error) ...[
+          if (recipeProvider.status == RecipeProviderStatus.error) ...<Widget>[
             const SizedBox(height: 16),
             _SyncStatusCard(
               icon: Icons.menu_book_outlined,
@@ -298,7 +302,7 @@ class _HomeTab extends StatelessWidget {
               onAction: onRetryRecipes,
             ),
           ] else if (recipeProvider.status == RecipeProviderStatus.loading &&
-              recipes.isEmpty) ...[
+              recipes.isEmpty) ...<Widget>[
             const SizedBox(height: 16),
             const _SyncStatusCard(
               icon: Icons.sync,
@@ -307,7 +311,8 @@ class _HomeTab extends StatelessWidget {
                   'Fetching your saved recipes for the dashboard summary.',
             ),
           ],
-          if (mealPlanProvider.status == MealPlanProviderStatus.error) ...[
+          if (mealPlanProvider.status ==
+              MealPlanProviderStatus.error) ...<Widget>[
             const SizedBox(height: 12),
             _SyncStatusCard(
               icon: Icons.calendar_month_outlined,
@@ -318,8 +323,9 @@ class _HomeTab extends StatelessWidget {
               actionLabel: 'Retry meal plan',
               onAction: onRetryMealPlan,
             ),
-          ] else if (mealPlanProvider.status == MealPlanProviderStatus.loading &&
-              plannedMealCount == 0) ...[
+          ] else if (mealPlanProvider.status ==
+                  MealPlanProviderStatus.loading &&
+              plannedMealCount == 0) ...<Widget>[
             const SizedBox(height: 12),
             const _SyncStatusCard(
               icon: Icons.sync,
@@ -328,7 +334,8 @@ class _HomeTab extends StatelessWidget {
                   'Loading your current meal plan so shopping can stay in sync.',
             ),
           ],
-          if (shoppingProvider.status == ShoppingListProviderStatus.error) ...[
+          if (shoppingProvider.status ==
+              ShoppingListProviderStatus.error) ...<Widget>[
             const SizedBox(height: 12),
             _SyncStatusCard(
               icon: Icons.shopping_cart_outlined,
@@ -339,9 +346,10 @@ class _HomeTab extends StatelessWidget {
               actionLabel: 'Retry shopping',
               onAction: onRetryShopping,
             ),
-          ] else if (shoppingProvider.status == ShoppingListProviderStatus.loading &&
+          ] else if (shoppingProvider.status ==
+                  ShoppingListProviderStatus.loading &&
               plannedMealCount > 0 &&
-              shoppingProvider.items.isEmpty) ...[
+              shoppingProvider.items.isEmpty) ...<Widget>[
             const SizedBox(height: 12),
             const _SyncStatusCard(
               icon: Icons.sync,
@@ -350,57 +358,64 @@ class _HomeTab extends StatelessWidget {
                   'Aggregating this week\'s planned ingredients for your shopping list.',
             ),
           ],
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: 'Recipes',
-                  value: recipes.length.toString(),
-                  icon: Icons.menu_book_outlined,
+          const SizedBox(height: 18),
+          AppPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                AppSectionTitle(
+                  'Weekly Snapshot',
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      shoppingHelperText,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                  label: 'Favorites',
-                  value: favoriteCount.toString(),
-                  icon: Icons.star_outline,
+                const SizedBox(height: 14),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Meals planned',
+                        value: plannedMealValue,
+                        icon: Icons.calendar_today_outlined,
+                        helperText: plannedMealCount == 0
+                            ? 'Current week'
+                            : 'This week',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Shopping items',
+                        value: shoppingValue,
+                        icon: Icons.shopping_basket_outlined,
+                        helperText: shoppingHelperText,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: 'Meals Planned',
-                  value: plannedMealValue,
-                  icon: Icons.calendar_today_outlined,
-                  helperText: plannedMealCount == 0
-                      ? 'Current week'
-                      : 'This week',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                  label: 'Shopping Items',
-                  value: shoppingValue,
-                  icon: Icons.shopping_basket_outlined,
-                  helperText: shoppingHelperText,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           _SectionCard(
             title: 'Quick Actions',
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
-              children: [
+              children: <Widget>[
                 _QuickActionChip(
                   label: 'Browse Recipes',
                   icon: Icons.menu_book_outlined,
@@ -435,8 +450,8 @@ class _HomeTab extends StatelessWidget {
                         'Create your first recipe to start building the rest of your weekly workflow.',
                   )
                 : Column(
-                    children: [
-                      for (final recipe in recentRecipes) ...[
+                    children: <Widget>[
+                      for (final Recipe recipe in recentRecipes) ...<Widget>[
                         _RecentRecipeTile(recipe: recipe),
                         if (recipe != recentRecipes.last)
                           const Divider(height: 20),
@@ -456,6 +471,18 @@ class _HomeTab extends StatelessWidget {
     }
 
     return 'Welcome back, $displayName';
+  }
+
+  String _buildInitials(AppUser? user) {
+    final displayName = user?.displayName.trim() ?? '';
+    if (displayName.isEmpty) {
+      return 'MP';
+    }
+
+    final parts = displayName.split(RegExp(r'\s+'));
+    final first = parts.first.isNotEmpty ? parts.first[0] : '';
+    final last = parts.length > 1 && parts.last.isNotEmpty ? parts.last[0] : '';
+    return '$first$last'.toUpperCase();
   }
 }
 
@@ -477,12 +504,14 @@ class _RecipesHubTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final recipes = recipeProvider.recipes;
-    final favorites = recipes.where((recipe) => recipe.isFavorite).toList();
+    final favorites = recipes
+        .where((Recipe recipe) => recipe.isFavorite)
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: [
-        if (recipeProvider.status == RecipeProviderStatus.error) ...[
+      children: <Widget>[
+        if (recipeProvider.status == RecipeProviderStatus.error) ...<Widget>[
           _SyncStatusCard(
             icon: Icons.warning_amber_outlined,
             title: 'Recipes could not be refreshed',
@@ -494,7 +523,7 @@ class _RecipesHubTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ] else if (recipeProvider.status == RecipeProviderStatus.loading &&
-            recipes.isEmpty) ...[
+            recipes.isEmpty) ...<Widget>[
           const _SyncStatusCard(
             icon: Icons.sync,
             title: 'Syncing recipes workspace',
@@ -507,7 +536,7 @@ class _RecipesHubTab extends StatelessWidget {
           title: 'Recipes Workspace',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: <Widget>[
               Text(
                 'Your recipes module is ready. Use it as the source for the meal-planning and shopping flows that come next.',
                 style: Theme.of(context).textTheme.bodyLarge,
@@ -516,7 +545,7 @@ class _RecipesHubTab extends StatelessWidget {
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: [
+                children: <Widget>[
                   _PrimaryActionCard(
                     label: 'All Recipes',
                     detail: '${recipes.length} saved',
@@ -551,8 +580,8 @@ class _RecipesHubTab extends StatelessWidget {
                       'Star the recipes you want to reach quickly during meal planning.',
                 )
               : Column(
-                  children: [
-                    for (final recipe in favorites.take(3)) ...[
+                  children: <Widget>[
+                    for (final Recipe recipe in favorites.take(3)) ...<Widget>[
                       _RecentRecipeTile(recipe: recipe),
                       if (recipe != favorites.take(3).last)
                         const Divider(height: 20),
@@ -565,6 +594,111 @@ class _RecipesHubTab extends StatelessWidget {
   }
 }
 
+class _DashboardHero extends StatelessWidget {
+  const _DashboardHero({
+    required this.greeting,
+    required this.initials,
+    required this.recipeCount,
+    required this.favoriteCount,
+    required this.plannedMealCount,
+  });
+
+  final String greeting;
+  final String initials;
+  final int recipeCount;
+  final int favoriteCount;
+  final int plannedMealCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 26),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.primary, AppColors.primaryDark],
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.22),
+            blurRadius: 26,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      greeting,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Manage recipes, plan your week, and keep your shopping list ready before the next grocery run.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFFE6F5EC),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.white.withValues(alpha: 0.18),
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _HeroStatCard(
+                  label: 'Recipes',
+                  value: recipeCount.toString(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HeroStatCard(
+                  label: 'Favorites',
+                  value: favoriteCount.toString(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HeroStatCard(
+                  label: 'This week',
+                  value: plannedMealCount.toString(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionCard extends StatelessWidget {
   const _SectionCard({required this.title, required this.child});
 
@@ -573,21 +707,14 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Theme.of(
-        context,
-      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
+    return AppPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          AppSectionTitle(title),
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }
@@ -610,41 +737,43 @@ class _SyncStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: colorScheme.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  if (actionLabel != null && onAction != null) ...[
-                    const SizedBox(height: 12),
-                    TextButton.icon(
-                      onPressed: () => unawaited(onAction!()),
-                      icon: const Icon(Icons.refresh),
-                      label: Text(actionLabel!),
-                    ),
-                  ],
-                ],
-              ),
+    return AppPanel(
+      backgroundColor: AppColors.surfaceTint,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(14),
             ),
-          ],
-        ),
+            child: Icon(icon, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                if (actionLabel != null && onAction != null) ...<Widget>[
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => unawaited(onAction!()),
+                    icon: const Icon(Icons.refresh),
+                    label: Text(actionLabel!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -665,27 +794,34 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceTint,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(value, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 4),
+          Text(label, style: Theme.of(context).textTheme.titleSmall),
+          if (helperText != null) ...<Widget>[
             const SizedBox(height: 4),
-            Text(label, style: Theme.of(context).textTheme.titleSmall),
-            if (helperText != null) ...[
-              const SizedBox(height: 4),
-              Text(helperText!, style: Theme.of(context).textTheme.bodySmall),
-            ],
+            Text(helperText!, style: Theme.of(context).textTheme.bodySmall),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -704,10 +840,25 @@ class _QuickActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      onPressed: onPressed,
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onPressed,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceTint,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(label),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -727,22 +878,28 @@ class _PrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return SizedBox(
       width: 170,
-      child: Card(
-        elevation: 0,
-        color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+      child: AppPanel(
+        backgroundColor: AppColors.surfaceTint,
+        padding: EdgeInsets.zero,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(24),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: colorScheme.primary),
+              children: <Widget>[
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: AppColors.primary),
+                ),
                 const SizedBox(height: 12),
                 Text(label, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
@@ -763,36 +920,31 @@ class _RecentRecipeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final imageUrl = recipe.imageUrl ?? '';
 
     return Row(
-      children: [
+      children: <Widget>[
         ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: SizedBox(
             width: 68,
             height: 68,
             child: imageUrl.isEmpty
-                ? DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                    ),
+                ? const DecoratedBox(
+                    decoration: BoxDecoration(color: AppColors.primarySoft),
                     child: Icon(
                       Icons.restaurant_menu,
-                      color: colorScheme.primary,
+                      color: AppColors.primary,
                     ),
                   )
                 : Image.network(
                     imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                      ),
+                    errorBuilder: (_, _, _) => const DecoratedBox(
+                      decoration: BoxDecoration(color: AppColors.primarySoft),
                       child: Icon(
                         Icons.restaurant_menu,
-                        color: colorScheme.primary,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
@@ -802,7 +954,7 @@ class _RecentRecipeTile extends StatelessWidget {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: <Widget>[
               Text(
                 recipe.title,
                 style: Theme.of(context).textTheme.titleMedium,
@@ -821,8 +973,45 @@ class _RecentRecipeTile extends StatelessWidget {
           ),
         ),
         if (recipe.isFavorite)
-          Icon(Icons.star, color: colorScheme.primary, size: 20),
+          const Icon(Icons.star, color: AppColors.primary, size: 20),
       ],
+    );
+  }
+}
+
+class _HeroStatCard extends StatelessWidget {
+  const _HeroStatCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: const Color(0xFFD9F0E1)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -841,8 +1030,16 @@ class _InfoState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: [
-        Icon(icon, size: 44),
+      children: <Widget>[
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(icon, size: 30, color: AppColors.primary),
+        ),
         const SizedBox(height: 12),
         Text(title, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 6),
