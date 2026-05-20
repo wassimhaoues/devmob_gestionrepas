@@ -43,11 +43,20 @@ class _DashboardPageState extends State<DashboardPage> {
     final mealPlanProvider = context.watch<MealPlanProvider>();
     final recipeProvider = context.watch<RecipeProvider>();
     final shoppingProvider = context.watch<ShoppingListProvider>();
+    final isRefreshingModules =
+        recipeProvider.isLoading ||
+        mealPlanProvider.isLoading ||
+        shoppingProvider.isLoading;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
         actions: [
+          IconButton(
+            onPressed: isRefreshingModules ? null : _refreshVisibleData,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh data',
+          ),
           IconButton(
             onPressed: authProvider.isLoading ? null : _signOut,
             icon: const Icon(Icons.logout),
@@ -63,6 +72,9 @@ class _DashboardPageState extends State<DashboardPage> {
             mealPlanProvider: mealPlanProvider,
             recipeProvider: recipeProvider,
             shoppingProvider: shoppingProvider,
+            onRetryRecipes: _refreshRecipes,
+            onRetryMealPlan: _refreshMealPlanAndShopping,
+            onRetryShopping: _refreshShoppingSummary,
             onOpenRecipes: () => setState(() => _selectedIndex = 1),
             onOpenFavorites: () =>
                 Navigator.of(context).pushNamed(favoriteRecipesRoute),
@@ -71,6 +83,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           _RecipesHubTab(
             recipeProvider: recipeProvider,
+            onRetryRecipes: _refreshRecipes,
             onBrowseAllRecipes: () =>
                 Navigator.of(context).pushNamed(recipeListRoute),
             onOpenFavorites: () =>
@@ -153,6 +166,50 @@ class _DashboardPageState extends State<DashboardPage> {
     _lastMealPlanSyncUid = null;
     await authProvider.signOut();
   }
+
+  Future<void> _refreshVisibleData() async {
+    if (_selectedIndex == 1) {
+      await _refreshRecipes();
+      return;
+    }
+    if (_selectedIndex == 2) {
+      await _refreshMealPlanAndShopping();
+      return;
+    }
+    if (_selectedIndex == 3) {
+      await _refreshShoppingSummary();
+      return;
+    }
+
+    await _refreshRecipes();
+    await _refreshMealPlanAndShopping();
+  }
+
+  Future<void> _refreshRecipes() async {
+    await context.read<RecipeProvider>().refresh();
+  }
+
+  Future<void> _refreshMealPlanAndShopping() async {
+    final mealPlanProvider = context.read<MealPlanProvider>();
+    await mealPlanProvider.refresh();
+    await _refreshShoppingSummary();
+  }
+
+  Future<void> _refreshShoppingSummary() async {
+    final authProvider = context.read<AuthProvider>();
+    final mealPlanProvider = context.read<MealPlanProvider>();
+    final shoppingProvider = context.read<ShoppingListProvider>();
+    final uid = authProvider.currentUser?.uid;
+    if (uid == null) {
+      return;
+    }
+
+    await shoppingProvider.refresh(
+      uid: uid,
+      week: mealPlanProvider.activeWeek,
+      entries: mealPlanProvider.entries,
+    );
+  }
 }
 
 class _HomeTab extends StatelessWidget {
@@ -161,6 +218,9 @@ class _HomeTab extends StatelessWidget {
     required this.mealPlanProvider,
     required this.recipeProvider,
     required this.shoppingProvider,
+    required this.onRetryRecipes,
+    required this.onRetryMealPlan,
+    required this.onRetryShopping,
     required this.onOpenRecipes,
     required this.onOpenFavorites,
     required this.onOpenMealPlan,
@@ -171,6 +231,9 @@ class _HomeTab extends StatelessWidget {
   final MealPlanProvider mealPlanProvider;
   final RecipeProvider recipeProvider;
   final ShoppingListProvider shoppingProvider;
+  final Future<void> Function() onRetryRecipes;
+  final Future<void> Function() onRetryMealPlan;
+  final Future<void> Function() onRetryShopping;
   final VoidCallback onOpenRecipes;
   final VoidCallback onOpenFavorites;
   final VoidCallback onOpenMealPlan;
@@ -223,6 +286,70 @@ class _HomeTab extends StatelessWidget {
             'Manage recipes, plan your week, and generate your next shopping list from one place.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
+          if (recipeProvider.status == RecipeProviderStatus.error) ...[
+            const SizedBox(height: 16),
+            _SyncStatusCard(
+              icon: Icons.menu_book_outlined,
+              title: 'Recipes need attention',
+              description:
+                  recipeProvider.errorMessage ??
+                  'Unable to refresh your recipes right now.',
+              actionLabel: 'Retry recipes',
+              onAction: onRetryRecipes,
+            ),
+          ] else if (recipeProvider.status == RecipeProviderStatus.loading &&
+              recipes.isEmpty) ...[
+            const SizedBox(height: 16),
+            const _SyncStatusCard(
+              icon: Icons.sync,
+              title: 'Syncing recipes',
+              description:
+                  'Fetching your saved recipes for the dashboard summary.',
+            ),
+          ],
+          if (mealPlanProvider.status == MealPlanProviderStatus.error) ...[
+            const SizedBox(height: 12),
+            _SyncStatusCard(
+              icon: Icons.calendar_month_outlined,
+              title: 'Meal plan could not be refreshed',
+              description:
+                  mealPlanProvider.errorMessage ??
+                  'Current-week planning data is temporarily unavailable.',
+              actionLabel: 'Retry meal plan',
+              onAction: onRetryMealPlan,
+            ),
+          ] else if (mealPlanProvider.status == MealPlanProviderStatus.loading &&
+              plannedMealCount == 0) ...[
+            const SizedBox(height: 12),
+            const _SyncStatusCard(
+              icon: Icons.sync,
+              title: 'Syncing this week',
+              description:
+                  'Loading your current meal plan so shopping can stay in sync.',
+            ),
+          ],
+          if (shoppingProvider.status == ShoppingListProviderStatus.error) ...[
+            const SizedBox(height: 12),
+            _SyncStatusCard(
+              icon: Icons.shopping_cart_outlined,
+              title: 'Shopping summary unavailable',
+              description:
+                  shoppingProvider.errorMessage ??
+                  'The weekly shopping summary could not be generated.',
+              actionLabel: 'Retry shopping',
+              onAction: onRetryShopping,
+            ),
+          ] else if (shoppingProvider.status == ShoppingListProviderStatus.loading &&
+              plannedMealCount > 0 &&
+              shoppingProvider.items.isEmpty) ...[
+            const SizedBox(height: 12),
+            const _SyncStatusCard(
+              icon: Icons.sync,
+              title: 'Generating shopping summary',
+              description:
+                  'Aggregating this week\'s planned ingredients for your shopping list.',
+            ),
+          ],
           const SizedBox(height: 20),
           Row(
             children: [
@@ -335,12 +462,14 @@ class _HomeTab extends StatelessWidget {
 class _RecipesHubTab extends StatelessWidget {
   const _RecipesHubTab({
     required this.recipeProvider,
+    required this.onRetryRecipes,
     required this.onBrowseAllRecipes,
     required this.onOpenFavorites,
     required this.onAddRecipe,
   });
 
   final RecipeProvider recipeProvider;
+  final Future<void> Function() onRetryRecipes;
   final VoidCallback onBrowseAllRecipes;
   final VoidCallback onOpenFavorites;
   final VoidCallback onAddRecipe;
@@ -353,6 +482,27 @@ class _RecipesHubTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (recipeProvider.status == RecipeProviderStatus.error) ...[
+          _SyncStatusCard(
+            icon: Icons.warning_amber_outlined,
+            title: 'Recipes could not be refreshed',
+            description:
+                recipeProvider.errorMessage ??
+                'The recipes workspace is temporarily out of sync.',
+            actionLabel: 'Retry recipes',
+            onAction: onRetryRecipes,
+          ),
+          const SizedBox(height: 16),
+        ] else if (recipeProvider.status == RecipeProviderStatus.loading &&
+            recipes.isEmpty) ...[
+          const _SyncStatusCard(
+            icon: Icons.sync,
+            title: 'Syncing recipes workspace',
+            description:
+                'Loading your saved recipes and favorites for quick access.',
+          ),
+          const SizedBox(height: 16),
+        ],
         _SectionCard(
           title: 'Recipes Workspace',
           child: Column(
@@ -436,6 +586,63 @@ class _SectionCard extends StatelessWidget {
             Text(title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
             child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SyncStatusCard extends StatelessWidget {
+  const _SyncStatusCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final String? actionLabel;
+  final Future<void> Function()? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  if (actionLabel != null && onAction != null) ...[
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: () => unawaited(onAction!()),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(actionLabel!),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),

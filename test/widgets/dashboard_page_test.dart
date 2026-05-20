@@ -119,6 +119,68 @@ void main() {
       authProvider.dispose();
     },
   );
+
+  testWidgets('dashboard shows recipe retry state when recipe sync fails', (
+    tester,
+  ) async {
+    final authProvider = AuthProvider(
+      authService: authService,
+      userProfileService: userProfileService,
+      errorMapper: const _TestErrorMapper(),
+    );
+    await authProvider.signIn(
+      email: 'user@example.com',
+      password: 'password123',
+    );
+
+    final recipeProvider = RecipeProvider(
+      recipeService: recipeService,
+      mealPlanService: mealPlanService,
+      recipeImageStorageService: _NoopRecipeImageStorageService(),
+      recipeImageProcessor: _NoopRecipeImageProcessor(),
+    );
+    final mealPlanProvider = MealPlanProvider(mealPlanService: mealPlanService);
+    final shoppingProvider = ShoppingListProvider(
+      generatorService: ShoppingListGeneratorService(
+        recipeService: recipeService,
+      ),
+      localStateService: _NoopLocalShoppingListStateService(),
+    );
+
+    recipeService.fetchRecipesResult = const <Recipe>[];
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+          ChangeNotifierProvider<RecipeProvider>.value(value: recipeProvider),
+          ChangeNotifierProvider<MealPlanProvider>.value(value: mealPlanProvider),
+          ChangeNotifierProvider<ShoppingListProvider>.value(
+            value: shoppingProvider,
+          ),
+        ],
+        child: const MaterialApp(home: DashboardPage()),
+      ),
+    );
+
+    await tester.pump();
+    recipeService.emitError(Exception('recipe sync failed'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Recipes need attention'), findsOneWidget);
+    expect(find.text('Retry recipes'), findsOneWidget);
+
+    await tester.tap(find.text('Retry recipes'));
+    await tester.pump();
+
+    expect(recipeService.fetchRecipesCallCount, 1);
+
+    shoppingProvider.dispose();
+    mealPlanProvider.dispose();
+    recipeProvider.dispose();
+    authProvider.dispose();
+  });
 }
 
 AppUser _user({
@@ -185,9 +247,15 @@ class _FakeRecipeService implements RecipeService {
       StreamController<List<Recipe>>.broadcast();
   final Map<String, Recipe> recipeById = <String, Recipe>{};
   int watchRecipesCallCount = 0;
+  int fetchRecipesCallCount = 0;
+  List<Recipe> fetchRecipesResult = const <Recipe>[];
 
   void emitRecipes(List<Recipe> recipes) {
     _controller.add(recipes);
+  }
+
+  void emitError(Object error) {
+    _controller.addError(error);
   }
 
   Future<void> dispose() async {
@@ -224,7 +292,8 @@ class _FakeRecipeService implements RecipeService {
     RecipeCategory? category,
     bool favoritesOnly = false,
   }) async {
-    return recipeById.values.toList();
+    fetchRecipesCallCount += 1;
+    return fetchRecipesResult;
   }
 
   @override
