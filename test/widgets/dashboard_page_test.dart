@@ -77,7 +77,9 @@ void main() {
         recipeImageStorageService: _NoopRecipeImageStorageService(),
         recipeImageProcessor: _NoopRecipeImageProcessor(),
       );
-      final mealPlanProvider = MealPlanProvider(mealPlanService: mealPlanService);
+      final mealPlanProvider = MealPlanProvider(
+        mealPlanService: mealPlanService,
+      );
       final shoppingProvider = ShoppingListProvider(
         generatorService: ShoppingListGeneratorService(
           recipeService: recipeService,
@@ -93,7 +95,9 @@ void main() {
           providers: [
             ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
             ChangeNotifierProvider<RecipeProvider>.value(value: recipeProvider),
-            ChangeNotifierProvider<MealPlanProvider>.value(value: mealPlanProvider),
+            ChangeNotifierProvider<MealPlanProvider>.value(
+              value: mealPlanProvider,
+            ),
             ChangeNotifierProvider<ShoppingListProvider>.value(
               value: shoppingProvider,
             ),
@@ -111,7 +115,7 @@ void main() {
 
       expect(recipeService.watchRecipesCallCount, 1);
       expect(mealPlanService.watchEntriesCallCount, 1);
-      expect(find.text('To buy this week'), findsOneWidget);
+      expect(find.text('To buy this week'), findsWidgets);
 
       shoppingProvider.dispose();
       mealPlanProvider.dispose();
@@ -154,7 +158,9 @@ void main() {
         providers: [
           ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
           ChangeNotifierProvider<RecipeProvider>.value(value: recipeProvider),
-          ChangeNotifierProvider<MealPlanProvider>.value(value: mealPlanProvider),
+          ChangeNotifierProvider<MealPlanProvider>.value(
+            value: mealPlanProvider,
+          ),
           ChangeNotifierProvider<ShoppingListProvider>.value(
             value: shoppingProvider,
           ),

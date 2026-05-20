@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/auth/auth_validators.dart';
+import '../../widgets/auth_shell.dart';
 
 const String forgotPasswordRoute = '/forgot-password';
 
@@ -52,45 +53,47 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final authProvider = context.watch<AuthProvider>();
     final isBusy = authProvider.isLoading;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Reset password')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: AuthValidators.validateEmail,
-                    onFieldSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: isBusy ? null : _submit,
-                    child: const Text('Send reset link'),
-                  ),
-                  if (authProvider.failure != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      authProvider.failure!.message,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ],
+    return AuthShell(
+      title: 'Reset your password',
+      subtitle:
+          'Enter the email address linked to your account and we will send you a recovery link.',
+      topBadgeIcon: Icons.lock_reset_rounded,
+      footer: Center(
+        child: TextButton(
+          onPressed: isBusy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Back to sign in'),
+        ),
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                hintText: 'you@example.com',
               ),
+              validator: AuthValidators.validateEmail,
+              onFieldSubmitted: (_) => _submit(),
             ),
-          ),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: isBusy ? null : _submit,
+              child: Text(isBusy ? 'Sending link...' : 'Send reset link'),
+            ),
+            if (authProvider.failure != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(
+                authProvider.failure!.message,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
         ),
       ),
     );

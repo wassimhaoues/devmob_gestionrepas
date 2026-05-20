@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/auth/auth_validators.dart';
+import '../../widgets/auth_shell.dart';
 import 'forgot_password_page.dart';
 import 'register_page.dart';
 
@@ -44,80 +45,82 @@ class _LoginPageState extends State<LoginPage> {
     final authProvider = context.watch<AuthProvider>();
     final isBusy = authProvider.isLoading;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: AuthValidators.validateEmail,
+    return AuthShell(
+      title: 'Welcome back',
+      subtitle:
+          'Sign in to manage recipes, organize your week, and keep your shopping list in sync.',
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          const Text('New here?'),
+          TextButton(
+            onPressed: isBusy
+                ? null
+                : () => Navigator.of(context).pushNamed(registerRoute),
+            child: const Text('Create account'),
+          ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                hintText: 'you@example.com',
+              ),
+              validator: AuthValidators.validateEmail,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                hintText: 'Enter your password',
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      suffixIcon: IconButton(
-                        onPressed: () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                      ),
-                    ),
-                    validator: AuthValidators.validatePassword,
-                    onFieldSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: isBusy ? null : _submit,
-                    child: const Text('Sign in'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: isBusy
-                        ? null
-                        : () => Navigator.of(context).pushNamed(registerRoute),
-                    child: const Text('Create account'),
-                  ),
-                  TextButton(
-                    onPressed: isBusy
-                        ? null
-                        : () => Navigator.of(
-                            context,
-                          ).pushNamed(forgotPasswordRoute),
-                    child: const Text('Forgot password?'),
-                  ),
-                  if (authProvider.failure != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      authProvider.failure!.message,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ],
+                ),
+              ),
+              validator: AuthValidators.validatePassword,
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: isBusy ? null : _submit,
+              child: Text(isBusy ? 'Signing in...' : 'Sign in'),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: isBusy
+                    ? null
+                    : () =>
+                          Navigator.of(context).pushNamed(forgotPasswordRoute),
+                child: const Text('Forgot password?'),
               ),
             ),
-          ),
+            if (authProvider.failure != null) ...<Widget>[
+              const SizedBox(height: 10),
+              Text(
+                authProvider.failure!.message,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
         ),
       ),
     );
