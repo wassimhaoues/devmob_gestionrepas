@@ -15,6 +15,10 @@ Completed in this phase:
 - added widget coverage for dashboard-level provider wiring and shopping summary
 - Phase 2 step 1: recipe deletion is blocked when the recipe is still used by
   meal-plan entries
+- Phase 2 step 2: Firestore rules now validate user, recipe, and meal-plan
+  document shapes instead of allowing any owner write
+- Phase 2 step 2: confirmed no additional composite indexes are needed for the
+  current module queries beyond the existing checked-in index set
 
 Implementation phases:
 - [x] Phase 1: signed-in flow wiring and dashboard integration
