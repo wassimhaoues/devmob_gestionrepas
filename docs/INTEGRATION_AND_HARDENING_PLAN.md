@@ -3,7 +3,7 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 3: reliability consistency, coverage expansion, and demo readiness
+- Phase 3: completed
 
 Completed in this phase:
 - branch created for integration and hardening work
@@ -27,11 +27,13 @@ Completed in this phase:
   data and flow coverage
 - Phase 3 step 3: added widget coverage for `AuthGate` switching between the
   signed-in shell and login flow
+- Phase 3 step 4: completed full-repo `flutter test` and `flutter analyze`
+  validation after the integration hardening changes
 
 Implementation phases:
 - [x] Phase 1: signed-in flow wiring and dashboard integration
 - [x] Phase 2: cross-module dependency policies and backend completion
-- [ ] Phase 3: reliability consistency, coverage expansion, and demo readiness
+- [x] Phase 3: reliability consistency, coverage expansion, and demo readiness
 
 ## 1. Why This Phase Exists
 
