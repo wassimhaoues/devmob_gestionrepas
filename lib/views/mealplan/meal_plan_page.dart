@@ -14,7 +14,9 @@ import 'assign_recipe_page.dart';
 const String mealPlanRoute = '/meal-plan';
 
 class MealPlanPage extends StatefulWidget {
-  const MealPlanPage({super.key});
+  const MealPlanPage({super.key, this.manageMealPlanWatching = true});
+
+  final bool manageMealPlanWatching;
 
   @override
   State<MealPlanPage> createState() => _MealPlanPageState();
@@ -108,8 +110,13 @@ class _MealPlanPageState extends State<MealPlanPage> {
   }
 
   void _syncWeekWatcher(BuildContext context) {
+    if (!widget.manageMealPlanWatching) {
+      return;
+    }
+
     final uid = context.read<AuthProvider>().currentUser?.uid;
-    if (uid == null || uid == _lastSyncedUid) {
+    final provider = context.read<MealPlanProvider>();
+    if (uid == null || uid == _lastSyncedUid || provider.uid == uid) {
       return;
     }
 

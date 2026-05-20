@@ -14,7 +14,9 @@ import '../../services/shopping/local_shopping_list_state_service.dart';
 const String shoppingListRoute = '/shopping-list';
 
 class ShoppingListPage extends StatefulWidget {
-  const ShoppingListPage({super.key});
+  const ShoppingListPage({super.key, this.manageMealPlanWatching = true});
+
+  final bool manageMealPlanWatching;
 
   @override
   State<ShoppingListPage> createState() => _ShoppingListPageState();
@@ -195,8 +197,13 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   }
 
   void _syncMealPlanWatcher(BuildContext context) {
+    if (!widget.manageMealPlanWatching) {
+      return;
+    }
+
     final uid = context.read<AuthProvider>().currentUser?.uid;
-    if (uid == null || uid == _lastSyncedMealPlanUid) {
+    final mealPlanProvider = context.read<MealPlanProvider>();
+    if (uid == null || uid == _lastSyncedMealPlanUid || mealPlanProvider.uid == uid) {
       return;
     }
 

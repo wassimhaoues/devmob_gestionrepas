@@ -1,5 +1,24 @@
 # Integration And Hardening Plan
 
+## Progress Tracker
+
+Current phase:
+- Phase 1: completed
+
+Completed in this phase:
+- branch created for integration and hardening work
+- dashboard now owns signed-in startup for recipe and meal-plan providers
+- meal-plan startup is disabled for dashboard-embedded tabs to avoid duplicate
+  watcher wiring
+- dashboard home summary now shows live shopping-list counts instead of a
+  placeholder zero
+- added widget coverage for dashboard-level provider wiring and shopping summary
+
+Implementation phases:
+- [x] Phase 1: signed-in flow wiring and dashboard integration
+- [ ] Phase 2: cross-module dependency policies and backend completion
+- [ ] Phase 3: reliability consistency, coverage expansion, and demo readiness
+
 ## 1. Why This Phase Exists
 
 After recipes, meal planning, and shopping list are all present, the app still
@@ -93,4 +112,3 @@ This phase is complete when:
 
 Any future branch created for this work must start with:
 - `feature/`
-

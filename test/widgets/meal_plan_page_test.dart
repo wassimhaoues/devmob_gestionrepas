@@ -62,6 +62,8 @@ void main() {
       ),
     );
 
+    await tester.pump();
+    await tester.pump();
     mealPlanService.emitEntries(const <MealPlanEntry>[]);
     await tester.pumpAndSettle();
 
@@ -92,9 +94,11 @@ void main() {
       ),
     );
 
+    await tester.pump();
+    await tester.pump();
     mealPlanService.emitEntries(<MealPlanEntry>[
       _sampleEntry(
-        date: DateTime(2026, 5, 18),
+        date: DateTime.now(),
         slotType: MealSlotType.breakfast,
         recipeTitle: 'Overnight Oats',
       ),
