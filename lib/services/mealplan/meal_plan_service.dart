@@ -22,4 +22,9 @@ abstract interface class MealPlanService {
     required String uid,
     required String entryId,
   });
+
+  Future<bool> hasEntriesForRecipe({
+    required String uid,
+    required String recipeId,
+  });
 }

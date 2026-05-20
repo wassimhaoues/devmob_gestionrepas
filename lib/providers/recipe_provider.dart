@@ -10,6 +10,7 @@ import '../models/recipe_failure.dart';
 import '../models/recipe_image_selection.dart';
 import '../models/recipe_step.dart';
 import '../services/recipe/ingredient_normalizer.dart';
+import '../services/mealplan/meal_plan_service.dart';
 import '../services/recipe/recipe_exception.dart';
 import '../services/recipe/recipe_image_processing_exception.dart';
 import '../services/recipe/recipe_image_processor.dart';
@@ -22,13 +23,16 @@ enum RecipeProviderStatus { initial, loading, ready, mutating, error }
 class RecipeProvider extends ChangeNotifier {
   RecipeProvider({
     required RecipeService recipeService,
+    required MealPlanService mealPlanService,
     required RecipeImageStorageService recipeImageStorageService,
     required RecipeImageProcessor recipeImageProcessor,
   }) : _recipeService = recipeService,
+       _mealPlanService = mealPlanService,
        _recipeImageStorageService = recipeImageStorageService,
        _recipeImageProcessor = recipeImageProcessor;
 
   final RecipeService _recipeService;
+  final MealPlanService _mealPlanService;
   final RecipeImageStorageService _recipeImageStorageService;
   final RecipeImageProcessor _recipeImageProcessor;
 
@@ -511,6 +515,21 @@ class RecipeProvider extends ChangeNotifier {
     _safeNotify();
 
     try {
+      final hasPlannedMeals = await _mealPlanService.hasEntriesForRecipe(
+        uid: currentUid,
+        recipeId: recipeId,
+      );
+      if (hasPlannedMeals) {
+        _applyMessageFailure(
+          const RecipeFailure(
+            code: RecipeFailureCode.dependencyConflict,
+            message:
+                'This recipe is still used in your meal plan. Remove those planned meals before deleting it.',
+          ),
+        );
+        return false;
+      }
+
       await _recipeService.deleteRecipe(uid: currentUid, recipeId: recipeId);
       final imageStoragePath = _findRecipeById(recipeId)?.imageStoragePath;
       if (imageStoragePath != null && imageStoragePath.isNotEmpty) {

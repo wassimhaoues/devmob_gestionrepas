@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/meal_plan_entry.dart';
 import 'package:devmob_gestionrepas/models/processed_recipe_image.dart';
 import 'package:devmob_gestionrepas/models/recipe.dart';
 import 'package:devmob_gestionrepas/models/recipe_category.dart';
@@ -10,6 +11,7 @@ import 'package:devmob_gestionrepas/models/recipe_image_upload_result.dart';
 import 'package:devmob_gestionrepas/models/recipe_image_selection.dart';
 import 'package:devmob_gestionrepas/models/recipe_step.dart';
 import 'package:devmob_gestionrepas/providers/recipe_provider.dart';
+import 'package:devmob_gestionrepas/services/mealplan/meal_plan_service.dart';
 import 'package:devmob_gestionrepas/services/recipe/recipe_exception.dart';
 import 'package:devmob_gestionrepas/services/recipe/recipe_image_processor.dart';
 import 'package:devmob_gestionrepas/services/recipe/recipe_image_storage_service.dart';
@@ -18,11 +20,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late _FakeRecipeService recipeService;
+  late _FakeMealPlanService mealPlanService;
   late _FakeRecipeImageStorageService imageStorageService;
   late _FakeRecipeImageProcessor imageProcessor;
 
   setUp(() {
     recipeService = _FakeRecipeService();
+    mealPlanService = _FakeMealPlanService();
     imageStorageService = _FakeRecipeImageStorageService();
     imageProcessor = _FakeRecipeImageProcessor();
   });
@@ -34,6 +38,7 @@ void main() {
   RecipeProvider buildProvider() {
     return RecipeProvider(
       recipeService: recipeService,
+      mealPlanService: mealPlanService,
       recipeImageStorageService: imageStorageService,
       recipeImageProcessor: imageProcessor,
     );
@@ -167,6 +172,28 @@ void main() {
     expect(result, isTrue);
     expect(recipeService.lastFavoriteRecipeId, 'recipe-99');
     expect(recipeService.lastFavoriteValue, isTrue);
+    provider.dispose();
+  });
+
+  test('deleteRecipe is blocked when the recipe is still planned', () async {
+    final provider = buildProvider();
+    await provider.startWatching(uid: 'user-1');
+    recipeService.emitRecipes(<Recipe>[
+      _sampleRecipe(id: 'recipe-1', ownerUid: 'user-1'),
+    ]);
+    await _flushAsync();
+    mealPlanService.hasEntriesForRecipeResult = true;
+
+    final success = await provider.deleteRecipe('recipe-1');
+
+    expect(success, isFalse);
+    expect(recipeService.lastDeletedRecipeId, isNull);
+    expect(provider.status, RecipeProviderStatus.error);
+    expect(provider.failure?.code, RecipeFailureCode.dependencyConflict);
+    expect(
+      provider.errorMessage,
+      'This recipe is still used in your meal plan. Remove those planned meals before deleting it.',
+    );
     provider.dispose();
   });
 
@@ -400,6 +427,52 @@ class _FakeRecipeService implements RecipeService {
 
   Future<void> dispose() async {
     await _controller.close();
+  }
+}
+
+class _FakeMealPlanService implements MealPlanService {
+  bool hasEntriesForRecipeResult = false;
+  String? lastHasEntriesUid;
+  String? lastHasEntriesRecipeId;
+
+  @override
+  Future<void> deleteEntry({
+    required String uid,
+    required String entryId,
+  }) async {}
+
+  @override
+  Future<List<MealPlanEntry>> fetchEntries({
+    required String uid,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    return const <MealPlanEntry>[];
+  }
+
+  @override
+  Future<bool> hasEntriesForRecipe({
+    required String uid,
+    required String recipeId,
+  }) async {
+    lastHasEntriesUid = uid;
+    lastHasEntriesRecipeId = recipeId;
+    return hasEntriesForRecipeResult;
+  }
+
+  @override
+  Future<void> upsertEntry({
+    required String uid,
+    required MealPlanEntry entry,
+  }) async {}
+
+  @override
+  Stream<List<MealPlanEntry>> watchEntries({
+    required String uid,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) {
+    throw UnimplementedError();
   }
 }
 
