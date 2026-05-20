@@ -3,11 +3,11 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 1: completed
+- Phase 2: completed
 
 Implementation phases:
 - [x] Phase 1: design reference extraction, theme foundation, auth entry polish, dashboard shell polish
-- [ ] Phase 2: recipes flow polish
+- [x] Phase 2: recipes flow polish
 - [ ] Phase 3: meal-planning and shopping-list polish
 - [ ] Phase 4: responsive pass, empty/error/loading consistency, final review
 
