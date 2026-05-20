@@ -72,6 +72,7 @@ void main() async {
         ChangeNotifierProvider<RecipeProvider>(
           create: (context) => RecipeProvider(
             recipeService: context.read<RecipeService>(),
+            mealPlanService: context.read<MealPlanService>(),
             recipeImageStorageService: context
                 .read<RecipeImageStorageService>(),
             recipeImageProcessor: context.read<RecipeImageProcessor>(),

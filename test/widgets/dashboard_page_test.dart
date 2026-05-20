@@ -73,6 +73,7 @@ void main() {
 
       final recipeProvider = RecipeProvider(
         recipeService: recipeService,
+        mealPlanService: mealPlanService,
         recipeImageStorageService: _NoopRecipeImageStorageService(),
         recipeImageProcessor: _NoopRecipeImageProcessor(),
       );
@@ -280,6 +281,14 @@ class _FakeMealPlanService implements MealPlanService {
     required DateTime endDate,
   }) async {
     return const <MealPlanEntry>[];
+  }
+
+  @override
+  Future<bool> hasEntriesForRecipe({
+    required String uid,
+    required String recipeId,
+  }) async {
+    return false;
   }
 
   @override

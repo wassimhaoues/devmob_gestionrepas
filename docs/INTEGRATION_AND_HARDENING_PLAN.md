@@ -3,7 +3,7 @@
 ## Progress Tracker
 
 Current phase:
-- Phase 1: completed
+- Phase 2: cross-module dependency policies and backend completion
 
 Completed in this phase:
 - branch created for integration and hardening work
@@ -13,6 +13,8 @@ Completed in this phase:
 - dashboard home summary now shows live shopping-list counts instead of a
   placeholder zero
 - added widget coverage for dashboard-level provider wiring and shopping summary
+- Phase 2 step 1: recipe deletion is blocked when the recipe is still used by
+  meal-plan entries
 
 Implementation phases:
 - [x] Phase 1: signed-in flow wiring and dashboard integration

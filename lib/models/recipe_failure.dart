@@ -3,6 +3,7 @@ enum RecipeFailureCode {
   permissionDenied,
   notFound,
   unavailable,
+  dependencyConflict,
   invalidData,
   unknown,
 }

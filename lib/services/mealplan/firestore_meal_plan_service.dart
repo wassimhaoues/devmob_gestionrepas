@@ -94,6 +94,27 @@ class FirestoreMealPlanService implements MealPlanService {
     }
   }
 
+  @override
+  Future<bool> hasEntriesForRecipe({
+    required String uid,
+    required String recipeId,
+  }) async {
+    try {
+      final normalizedRecipeId = recipeId.trim();
+      if (normalizedRecipeId.isEmpty) {
+        return false;
+      }
+
+      final snapshot = await _entries(uid)
+          .where('recipeId', isEqualTo: normalizedRecipeId)
+          .limit(1)
+          .get();
+      return snapshot.docs.isNotEmpty;
+    } catch (error) {
+      throw MealPlanException(_errorMapper.map(error));
+    }
+  }
+
   String buildEntryId({
     required DateTime date,
     required MealSlotType slotType,
