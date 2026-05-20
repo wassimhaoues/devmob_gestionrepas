@@ -21,6 +21,10 @@ Completed in this phase:
   current module queries beyond the existing checked-in index set
 - Phase 3 step 1: dashboard-level retry actions and sync/error status cards now
   cover recipe, meal-plan, and shopping summary refresh failures
+- Phase 3 step 2: added Firebase setup documentation for project, rules, and
+  deploy steps
+- Phase 3 step 2: added a manual demo-day QA checklist with recommended demo
+  data and flow coverage
 
 Implementation phases:
 - [x] Phase 1: signed-in flow wiring and dashboard integration
