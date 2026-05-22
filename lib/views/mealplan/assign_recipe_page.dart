@@ -8,6 +8,8 @@ import '../../models/recipe.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_plan_provider.dart';
 import '../../services/recipe/recipe_service.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/app_panels.dart';
 import '../recipe/add_recipe_page.dart';
 
 const String assignRecipeRoute = '/meal-plan/assign-recipe';
@@ -68,38 +70,54 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Assign Recipe')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _HeaderCard(args: args, currentRecipeTitle: currentEntry?.recipeTitle),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search),
-              labelText: 'Search recipes',
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {});
-                      },
-                      icon: const Icon(Icons.close),
-                    ),
-            ),
-            onChanged: (_) => setState(() {}),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        children: <Widget>[
+          _AssignmentHero(
+            args: args,
+            currentRecipeTitle: currentEntry?.recipeTitle,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              FilterChip(
-                label: const Text('Favorites first'),
-                selected: _favoritesOnly,
-                onSelected: (value) {
-                  setState(() => _favoritesOnly = value);
-                },
-              ),
-            ],
+          AppPanel(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: <Widget>[
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    labelText: 'Search recipes',
+                    hintText: 'Search by title, description, or category',
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    FilterChip(
+                      label: const Text('Favorites first'),
+                      selected: _favoritesOnly,
+                      onSelected: (value) {
+                        setState(() => _favoritesOnly = value);
+                      },
+                    ),
+                    const Spacer(),
+                    _InlineStatChip(
+                      icon: Icons.restaurant_menu,
+                      label: '${filteredRecipes.length} shown',
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           if (_isLoading)
@@ -110,7 +128,7 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
           else if (_errorMessage != null)
             _ErrorState(
               message: _errorMessage!,
-              onRetry: () => _reloadCurrentUserRecipes(),
+              onRetry: _reloadCurrentUserRecipes,
             )
           else if (filteredRecipes.isEmpty)
             _EmptyState(
@@ -229,42 +247,116 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
   }
 }
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.args, required this.currentRecipeTitle});
+class _AssignmentHero extends StatelessWidget {
+  const _AssignmentHero({
+    required this.args,
+    required this.currentRecipeTitle,
+  });
 
   final MealPlanAssignmentArgs args;
   final String? currentRecipeTitle;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Theme.of(
-        context,
-      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Assign a recipe to ${args.slotType.label}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _formatDay(args.date),
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            if (currentRecipeTitle != null && currentRecipeTitle!.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Currently assigned: $currentRecipeTitle',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ],
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.indigo, AppColors.primary],
         ),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Assign a recipe to ${args.slotType.label}',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _formatDay(args.date),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            currentRecipeTitle == null || currentRecipeTitle!.isEmpty
+                ? 'Choose a recipe that fits this slot and it will appear in your weekly planner instantly.'
+                : 'Currently assigned: $currentRecipeTitle',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _HeroPill(
+            icon: Icons.schedule,
+            label: '${args.slotType.label} slot',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroPill extends StatelessWidget {
+  const _HeroPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineStatChip extends StatelessWidget {
+  const _InlineStatChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceTint,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 15, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }
@@ -284,21 +376,20 @@ class _RecipeSelectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+    return AppPanel(
+      padding: EdgeInsets.zero,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
         onTap: isSaving ? null : onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Row(
-            children: [
+            children: <Widget>[
               ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(18),
                 child: SizedBox(
-                  width: 72,
-                  height: 72,
+                  width: 84,
+                  height: 84,
                   child: (recipe.imageUrl ?? '').isEmpty
                       ? DecoratedBox(
                           decoration: BoxDecoration(
@@ -306,6 +397,7 @@ class _RecipeSelectionCard extends StatelessWidget {
                           ),
                           child: Icon(
                             Icons.restaurant_menu,
+                            size: 28,
                             color: colorScheme.primary,
                           ),
                         )
@@ -318,26 +410,34 @@ class _RecipeSelectionCard extends StatelessWidget {
                             ),
                             child: Icon(
                               Icons.restaurant_menu,
+                              size: 28,
                               color: colorScheme.primary,
                             ),
                           ),
                         ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: <Widget>[
                     Text(
                       recipe.title,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 6),
+                    Text(
+                      recipe.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
+                      children: <Widget>[
                         Chip(
                           label: Text(recipe.category.label),
                           visualDensity: VisualDensity.compact,
@@ -353,10 +453,18 @@ class _RecipeSelectionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 18,
-                color: colorScheme.primary,
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
               ),
             ],
           ),
@@ -374,23 +482,23 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 48),
-      child: Column(
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 48,
-            color: Theme.of(context).colorScheme.error,
-          ),
-          const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => unawaited(onRetry()),
-            child: const Text('Retry'),
-          ),
-        ],
+    return AppPanel(
+      backgroundColor: AppColors.dangerSoft,
+      borderColor: AppColors.danger.withValues(alpha: 0.18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Column(
+          children: <Widget>[
+            const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => unawaited(onRetry()),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -412,28 +520,38 @@ class _EmptyState extends StatelessWidget {
         ? 'Try a different search or turn off the favorites filter.'
         : 'Create a recipe first so you can assign it to a meal slot.';
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 48),
-      child: Column(
-        children: [
-          const Icon(Icons.menu_book_outlined, size: 48),
-          const SizedBox(height: 12),
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          if (!hasSearchQuery) ...[
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onCreateRecipe,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Recipe'),
+    return AppPanel(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Column(
+          children: <Widget>[
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(Icons.menu_book_outlined, color: AppColors.primary),
             ),
+            const SizedBox(height: 12),
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            if (!hasSearchQuery) ...<Widget>[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onCreateRecipe,
+                icon: const Icon(Icons.add),
+                label: const Text('Create Recipe'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
