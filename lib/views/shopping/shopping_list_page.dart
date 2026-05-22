@@ -853,7 +853,9 @@ class _QuantityPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      constraints: const BoxConstraints(minWidth: 92),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -861,9 +863,14 @@ class _QuantityPill extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: Theme.of(
           context,
-        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ).textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.heading,
+        ),
       ),
     );
   }
@@ -1008,8 +1015,8 @@ class _ProgressBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 78,
-      height: 78,
+      width: 82,
+      height: 82,
       child: Stack(
         alignment: Alignment.center,
         children: <Widget>[
@@ -1019,22 +1026,32 @@ class _ProgressBadge extends StatelessWidget {
             valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
             backgroundColor: Colors.white.withValues(alpha: 0.25),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                '$completedCount',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  children: <InlineSpan>[
+                    TextSpan(
+                      text: '$completedCount',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '/$totalCount',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                '/$totalCount',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.84),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
