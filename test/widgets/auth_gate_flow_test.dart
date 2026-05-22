@@ -100,7 +100,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Plan'), findsOneWidget);
     expect(find.byTooltip('Sign out'), findsOneWidget);
 
     await authProvider.signOut();

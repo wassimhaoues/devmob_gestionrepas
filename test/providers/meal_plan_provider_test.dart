@@ -97,7 +97,14 @@ void main() {
     );
 
     expect(result, isTrue);
-    expect(mealPlanService.lastDeletedEntryId, '20260519_breakfast');
+    expect(
+      mealPlanService.lastDeletedEntryId,
+      MealPlanEntry.buildId(
+        date: DateTime(2026, 5, 19),
+        slotType: MealSlotType.breakfast,
+        recipeId: 'recipe-1',
+      ),
+    );
     expect(provider.entries, isEmpty);
     provider.dispose();
   });

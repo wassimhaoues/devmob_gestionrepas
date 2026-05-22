@@ -101,7 +101,7 @@ void main() {
       expect(created, isNotNull);
       expect(created!.ingredients.first.displayName, 'Tómatoes');
       expect(created.ingredients.first.canonicalName, 'tomato');
-      expect(created.ingredients.first.unit, 'pieces');
+      expect(created.ingredients.first.unit, IngredientUnit.piece);
       expect(created.steps.first.order, 1);
       expect(created.steps.first.text, 'boil water');
       provider.dispose();
