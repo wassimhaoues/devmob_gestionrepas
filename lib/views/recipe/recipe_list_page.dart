@@ -222,30 +222,42 @@ class _RecipesHeader extends StatelessWidget {
             ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFE4F4EA)),
           ),
           const SizedBox(height: 18),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _HeroMetric(
-                  label: favoritesOnlyView ? 'Favorites' : 'Recipes',
-                  value: recipeCount.toString(),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onAddPressed,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.35),
-                    ),
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final metric = _HeroMetric(
+                label: favoritesOnlyView ? 'Favorites' : 'Recipes',
+                value: recipeCount.toString(),
+              );
+              final button = OutlinedButton.icon(
+                onPressed: onAddPressed,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.35),
                   ),
-                  icon: const Icon(Icons.add),
-                  label: const Text('New recipe'),
+                  backgroundColor: Colors.white.withValues(alpha: 0.08),
                 ),
-              ),
-            ],
+                icon: const Icon(Icons.add),
+                label: const Text('New recipe'),
+              );
+              if (constraints.maxWidth < 380) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    metric,
+                    const SizedBox(height: 12),
+                    button,
+                  ],
+                );
+              }
+              return Row(
+                children: <Widget>[
+                  Expanded(child: metric),
+                  const SizedBox(width: 12),
+                  Expanded(child: button),
+                ],
+              );
+            },
           ),
         ],
       ),

@@ -61,7 +61,7 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
     }
 
     if (recipe == null && provider.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: _RecipeLoadingState());
     }
 
     if (recipe == null) {
@@ -385,26 +385,39 @@ class _RecipeSummaryHeader extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _StatTile(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stats = <Widget>[
+                _StatTile(
                   label: 'Ingredients',
                   value: recipe.ingredients.length.toString(),
                   icon: Icons.shopping_basket_outlined,
                   color: AppColors.amber,
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatTile(
+                _StatTile(
                   label: 'Steps',
                   value: recipe.steps.length.toString(),
                   icon: Icons.format_list_numbered_rounded,
                   color: AppColors.indigo,
                 ),
-              ),
-            ],
+              ];
+              if (constraints.maxWidth < 360) {
+                return Column(
+                  children: <Widget>[
+                    stats[0],
+                    const SizedBox(height: 10),
+                    stats[1],
+                  ],
+                );
+              }
+              return Row(
+                children: <Widget>[
+                  Expanded(child: stats[0]),
+                  const SizedBox(width: 10),
+                  Expanded(child: stats[1]),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -506,15 +519,29 @@ class _IngredientRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 8,
         children: <Widget>[
-          Expanded(child: Text(label)),
-          const SizedBox(width: 12),
-          Text(
-            quantity,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(color: AppColors.primary),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 120, maxWidth: 220),
+            child: Text(label),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              quantity,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(color: AppColors.primary),
+            ),
           ),
         ],
       ),
@@ -591,6 +618,46 @@ class _MissingRecipeState extends StatelessWidget {
               FilledButton(
                 onPressed: () => unawaited(onRetry()),
                 child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeLoadingState extends StatelessWidget {
+  const _RecipeLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: AppPanel(
+          backgroundColor: AppColors.surfaceTint,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.menu_book_outlined,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 14),
+              Text(
+                'Loading recipe details...',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ),

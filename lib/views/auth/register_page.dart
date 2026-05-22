@@ -67,8 +67,11 @@ class _RegisterPageState extends State<RegisterPage> {
       subtitle:
           'Set up your cooking workspace so recipes, meal plans, and shopping lists stay connected.',
       topBadgeIcon: Icons.auto_awesome_rounded,
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        runSpacing: 0,
         children: <Widget>[
           const Text('Already have an account?'),
           TextButton(

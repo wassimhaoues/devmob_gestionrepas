@@ -49,8 +49,11 @@ class _LoginPageState extends State<LoginPage> {
       title: 'Welcome back',
       subtitle:
           'Sign in to manage recipes, organize your week, and keep your shopping list in sync.',
-      footer: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        runSpacing: 0,
         children: <Widget>[
           const Text('New here?'),
           TextButton(

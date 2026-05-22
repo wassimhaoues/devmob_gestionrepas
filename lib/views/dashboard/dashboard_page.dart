@@ -383,10 +383,11 @@ class _HomeTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: _StatCard(
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final stacked = constraints.maxWidth < 440;
+                    final cards = <Widget>[
+                      _StatCard(
                         label: 'Meals planned',
                         value: plannedMealValue,
                         icon: Icons.calendar_today_outlined,
@@ -394,17 +395,32 @@ class _HomeTab extends StatelessWidget {
                             ? 'Current week'
                             : 'This week',
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
+                      _StatCard(
                         label: 'Shopping items',
                         value: shoppingValue,
                         icon: Icons.shopping_basket_outlined,
                         helperText: shoppingHelperText,
                       ),
-                    ),
-                  ],
+                    ];
+                    if (stacked) {
+                      return Column(
+                        children: <Widget>[
+                          for (int index = 0; index < cards.length; index++) ...[
+                            cards[index],
+                            if (index < cards.length - 1)
+                              const SizedBox(height: 12),
+                          ],
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: <Widget>[
+                        Expanded(child: cards[0]),
+                        const SizedBox(width: 12),
+                        Expanded(child: cards[1]),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -631,13 +647,26 @@ class _DashboardHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: Column(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked = constraints.maxWidth < 360;
+              final avatar = CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.white.withValues(alpha: 0.18),
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+              if (stacked) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    avatar,
+                    const SizedBox(height: 14),
                     Text(
                       greeting,
                       style: Theme.of(
@@ -652,46 +681,76 @@ class _DashboardHero extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.white.withValues(alpha: 0.18),
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          greeting,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(color: Colors.white),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Manage recipes, plan your week, and keep your shopping list ready before the next grocery run.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: const Color(0xFFE6F5EC)),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: 16),
+                  avatar,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 18),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _HeroStatCard(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cards = <Widget>[
+                _HeroStatCard(
                   label: 'Recipes',
                   value: recipeCount.toString(),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _HeroStatCard(
+                _HeroStatCard(
                   label: 'Favorites',
                   value: favoriteCount.toString(),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _HeroStatCard(
+                _HeroStatCard(
                   label: 'This week',
                   value: plannedMealCount.toString(),
                 ),
-              ),
-            ],
+              ];
+              if (constraints.maxWidth < 430) {
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: cards
+                      .map(
+                        (card) => SizedBox(
+                          width: (constraints.maxWidth - 10) / 2,
+                          child: card,
+                        ),
+                      )
+                      .toList(),
+                );
+              }
+              return Row(
+                children: <Widget>[
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 10),
+                  Expanded(child: cards[1]),
+                  const SizedBox(width: 10),
+                  Expanded(child: cards[2]),
+                ],
+              );
+            },
           ),
         ],
       ),
