@@ -53,7 +53,8 @@ class _RecipeListPageState extends State<RecipeListPage> {
           recipe.category.label.toLowerCase().contains(query);
     }).toList();
 
-    return Scaffold(
+    return AppScaffold(
+      useAppBar: false,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openAddRecipe(context),
         icon: const Icon(Icons.add),
@@ -70,6 +71,9 @@ class _RecipeListPageState extends State<RecipeListPage> {
               recipeCount: sourceRecipes.length,
               favoritesOnlyView: widget.favoritesOnlyView,
               onAddPressed: () => _openAddRecipe(context),
+              onBack: Navigator.of(context).canPop()
+                  ? () => Navigator.of(context).maybePop()
+                  : null,
             ),
             const SizedBox(height: 16),
             _SearchField(
@@ -91,7 +95,10 @@ class _RecipeListPageState extends State<RecipeListPage> {
             if (recipeProvider.status == RecipeProviderStatus.loading &&
                 sourceRecipes.isEmpty) ...<Widget>[
               const SizedBox(height: 20),
-              const Center(child: CircularProgressIndicator()),
+              const AppLoadingState(
+                message: 'Loading your recipes...',
+                icon: Icons.menu_book_outlined,
+              ),
             ] else if (recipeProvider.status == RecipeProviderStatus.error &&
                 sourceRecipes.isEmpty) ...<Widget>[
               const SizedBox(height: 20),
@@ -177,40 +184,57 @@ class _RecipesHeader extends StatelessWidget {
     required this.recipeCount,
     required this.favoritesOnlyView,
     required this.onAddPressed,
+    this.onBack,
   });
 
   final String pageTitle;
   final int recipeCount;
   final bool favoritesOnlyView;
   final VoidCallback onAddPressed;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[AppColors.primary, AppColors.primaryDark],
-        ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        gradient: AppGradients.brand,
+        borderRadius: BorderRadius.circular(AppRadii.xl),
+        boxShadow: AppShadows.hero(AppColors.primary),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            pageTitle,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+          Row(
+            children: <Widget>[
+              if (onBack != null) ...<Widget>[
+                Material(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                  child: InkWell(
+                    onTap: onBack,
+                    borderRadius: BorderRadius.circular(AppRadii.sm),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Text(
+                  pageTitle,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
@@ -232,9 +256,7 @@ class _RecipesHeader extends StatelessWidget {
                 onPressed: onAddPressed,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
-                  side: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.35),
-                  ),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
                   backgroundColor: Colors.white.withValues(alpha: 0.08),
                 ),
                 icon: const Icon(Icons.add),
@@ -479,17 +501,7 @@ class _RecipeMetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
-      ),
-    );
+    return AppStatusChip(label: label, color: color);
   }
 }
 
@@ -501,38 +513,11 @@ class _RecipeThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[Color(0xFFF3FBF6), Color(0xFFE6F4EC)],
-        ),
-      ),
-      child: const Center(
-        child: Icon(Icons.restaurant_menu, color: AppColors.primary, size: 34),
-      ),
-    );
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: (imageUrl ?? '').isEmpty
-            ? placeholder
-            : Image.network(
-                imageUrl!,
-                fit: BoxFit.cover,
-                loadingBuilder: (_, Widget child, ImageChunkEvent? progress) {
-                  if (progress == null) {
-                    return child;
-                  }
-                  return placeholder;
-                },
-                errorBuilder: (_, _, _) => placeholder,
-                semanticLabel: '$title recipe image',
-              ),
-      ),
+    return AppImageFrame(
+      imageUrl: imageUrl,
+      semanticLabel: '$title recipe image',
+      aspectRatio: 16 / 9,
+      radius: 24,
     );
   }
 }
@@ -565,57 +550,24 @@ class _EmptyState extends StatelessWidget {
         ? 'Star a recipe to keep it close at hand here.'
         : 'Create your first recipe to start building your meal workflow.';
 
-    return AppPanel(
-      child: Column(
-        children: <Widget>[
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Icon(
-              hasSearchQuery
-                  ? Icons.search_off_rounded
-                  : Icons.menu_book_outlined,
-              size: 36,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 18),
-          if (hasSearchQuery && onClearSearch != null)
-            FilledButton.icon(
-              onPressed: onClearSearch,
-              icon: const Icon(Icons.close),
-              label: const Text('Clear search'),
-            )
-          else if (!favoritesOnlyView)
-            FilledButton.icon(
-              onPressed: onAddPressed,
-              icon: const Icon(Icons.add),
-              label: const Text('Create recipe'),
-            )
-          else if (onBrowseAllPressed != null)
-            FilledButton.icon(
-              onPressed: onBrowseAllPressed,
-              icon: const Icon(Icons.menu_book_outlined),
-              label: const Text('Browse all recipes'),
-            ),
-        ],
-      ),
+    return AppMessageState(
+      icon: hasSearchQuery
+          ? Icons.search_off_rounded
+          : Icons.menu_book_outlined,
+      title: title,
+      description: description,
+      actionLabel: hasSearchQuery && onClearSearch != null
+          ? 'Clear search'
+          : !favoritesOnlyView
+          ? 'Create recipe'
+          : onBrowseAllPressed != null
+          ? 'Browse all recipes'
+          : null,
+      onAction: hasSearchQuery && onClearSearch != null
+          ? onClearSearch
+          : !favoritesOnlyView
+          ? onAddPressed
+          : onBrowseAllPressed,
     );
   }
 }
@@ -628,23 +580,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
-      backgroundColor: AppColors.dangerSoft,
-      borderColor: AppColors.danger.withValues(alpha: 0.2),
-      child: Column(
-        children: <Widget>[
-          const Icon(Icons.error_outline, size: 42, color: AppColors.danger),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 18),
-          FilledButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
-    );
+    return AppErrorState(message: message, onRetry: onRetry);
   }
 }
 
