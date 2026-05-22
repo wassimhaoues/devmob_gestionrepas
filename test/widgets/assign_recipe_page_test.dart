@@ -104,7 +104,10 @@ void main() {
     authProvider.dispose();
   });
 
-  testWidgets('assigns a tapped recipe to the selected slot', (tester) async {
+  testWidgets('assigns selected recipes when done is tapped', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final authProvider = AuthProvider(
       authService: authService,
       userProfileService: userProfileService,
@@ -114,6 +117,7 @@ void main() {
 
     recipeService.recipes = <Recipe>[
       _recipe(id: '1', title: 'Tomato Soup', isFavorite: false),
+      _recipe(id: '2', title: 'Pasta Bake', isFavorite: true),
     ];
 
     final mealPlanProvider = MealPlanProvider(mealPlanService: mealPlanService);
@@ -141,13 +145,45 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tomato Soup'));
-    await tester.pump();
+    expect(find.text('Done (1)'), findsNothing);
 
-    expect(mealPlanProvider.entryFor(
+    final listView = find.byType(Scrollable).first;
+    final tomatoCard = find.ancestor(
+      of: find.text('Tomato Soup'),
+      matching: find.byType(InkWell),
+    );
+    final pastaCard = find.ancestor(
+      of: find.text('Pasta Bake'),
+      matching: find.byType(InkWell),
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Tomato Soup'),
+      200,
+      scrollable: listView,
+    );
+    await tester.tap(tomatoCard.first);
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Pasta Bake'),
+      200,
+      scrollable: listView,
+    );
+    await tester.tap(pastaCard.first);
+    await tester.pump();
+    expect(find.text('Done (2)'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Done (2)'));
+    await tester.pumpAndSettle();
+
+    final entries = mealPlanProvider.entriesForSlot(
       date: DateTime(2026, 5, 19),
       slotType: MealSlotType.dinner,
-    )?.recipeTitle, 'Tomato Soup');
+    );
+    expect(entries.map((entry) => entry.recipeTitle), containsAll(<String>[
+      'Tomato Soup',
+      'Pasta Bake',
+    ]));
 
     mealPlanProvider.dispose();
     authProvider.dispose();

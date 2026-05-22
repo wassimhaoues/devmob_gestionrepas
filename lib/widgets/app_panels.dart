@@ -117,6 +117,38 @@ class AppSectionTitle extends StatelessWidget {
   }
 }
 
+class AppBrandMark extends StatelessWidget {
+  const AppBrandMark({
+    super.key,
+    this.size = 34,
+    this.padding = const EdgeInsets.all(10),
+    this.backgroundColor = AppColors.primarySoft,
+    this.borderRadius = AppRadii.lg,
+  });
+
+  final double size;
+  final EdgeInsetsGeometry padding;
+  final Color backgroundColor;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
+      child: Image.asset(
+        'assets/branding/app-icon.png',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+      ),
+    );
+  }
+}
+
 class AppHeroHeader extends StatelessWidget {
   const AppHeroHeader({
     super.key,
@@ -687,10 +719,12 @@ class AppLoadingState extends StatelessWidget {
     super.key,
     this.message = 'Loading...',
     this.icon = Icons.restaurant_menu_rounded,
+    this.useBrandMark = true,
   });
 
   final String message;
   final IconData icon;
+  final bool useBrandMark;
 
   @override
   Widget build(BuildContext context) {
@@ -699,15 +733,23 @@ class AppLoadingState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(AppRadii.lg),
+          if (useBrandMark)
+            const AppBrandMark(
+              size: 34,
+              padding: EdgeInsets.all(12),
+              backgroundColor: AppColors.primarySoft,
+              borderRadius: AppRadii.lg,
+            )
+          else
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(AppRadii.lg),
+              ),
+              child: Icon(icon, color: AppColors.primary),
             ),
-            child: Icon(icon, color: AppColors.primary),
-          ),
           const SizedBox(height: 16),
           const CircularProgressIndicator(),
           const SizedBox(height: 14),

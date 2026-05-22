@@ -82,7 +82,7 @@ class AppGradients {
   static const LinearGradient screen = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: <Color>[Color(0xFFF4FAF5), Color(0xFFFFFFFF)],
+    colors: <Color>[Color(0xFFFFFFFF), Color(0xFFFFFFFF)],
   );
 
   static const LinearGradient imageScrim = LinearGradient(

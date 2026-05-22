@@ -67,6 +67,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/branding/app-icon.png
+    - assets/branding/app-icon-1024.png
+
   fonts:
     - family: NunitoSans
       fonts:
