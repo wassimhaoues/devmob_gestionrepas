@@ -22,6 +22,7 @@ class AuthShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final showBrandMark = topBadgeIcon == Icons.restaurant_menu_rounded;
 
     return Scaffold(
       body: DecoratedBox(
@@ -44,10 +45,19 @@ class AuthShell extends StatelessWidget {
                           gradient: AppGradients.brand,
                           boxShadow: AppShadows.hero(AppColors.primary),
                         ),
-                        child: Icon(
-                          topBadgeIcon,
-                          color: Colors.white,
-                          size: 30,
+                        child: Center(
+                          child: showBrandMark
+                              ? const AppBrandMark(
+                                  size: 34,
+                                  padding: EdgeInsets.zero,
+                                  backgroundColor: Colors.transparent,
+                                  borderRadius: 0,
+                                )
+                              : Icon(
+                                  topBadgeIcon,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
                         ),
                       ),
                     ),
