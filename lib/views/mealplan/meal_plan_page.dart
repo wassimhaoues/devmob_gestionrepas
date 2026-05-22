@@ -287,7 +287,7 @@ class _PlannerHero extends StatelessWidget {
   }
 }
 
-class _WeekDayStrip extends StatelessWidget {
+class _WeekDayStrip extends StatefulWidget {
   const _WeekDayStrip({
     required this.week,
     required this.entries,
@@ -301,31 +301,94 @@ class _WeekDayStrip extends StatelessWidget {
   final ValueChanged<DateTime> onDaySelected;
 
   @override
+  State<_WeekDayStrip> createState() => _WeekDayStripState();
+}
+
+class _WeekDayStripState extends State<_WeekDayStrip> {
+  final ScrollController _scrollController = ScrollController();
+  late final List<GlobalKey> _dayKeys = List<GlobalKey>.generate(
+    7,
+    (_) => GlobalKey(),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSelectedVisible());
+  }
+
+  @override
+  void didUpdateWidget(covariant _WeekDayStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isSameDate(oldWidget.selectedDay, widget.selectedDay) ||
+        oldWidget.week.startDate != widget.week.startDate) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _ensureSelectedVisible(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _ensureSelectedVisible() async {
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+
+    final selectedIndex = widget.week.days.indexWhere(
+      (day) => _isSameDate(day, widget.selectedDay),
+    );
+    if (selectedIndex < 0 || selectedIndex >= _dayKeys.length) {
+      return;
+    }
+
+    final selectedContext = _dayKeys[selectedIndex].currentContext;
+    if (selectedContext == null) {
+      return;
+    }
+
+    await Scrollable.ensureVisible(
+      selectedContext,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final todayNorm = DateTime(today.year, today.month, today.day);
 
     return SizedBox(
-      height: 116,
+      height: 92,
       child: ListView.separated(
+        controller: _scrollController,
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final day = week.days[index];
-          final isSelected = _isSameDate(day, selectedDay);
+          final day = widget.week.days[index];
+          final isSelected = _isSameDate(day, widget.selectedDay);
           final isToday = _isSameDate(day, todayNorm);
-          final entryCount = entries
+          final entryCount = widget.entries
               .where((entry) => _isSameDate(entry.date, day))
               .length;
-          return _DayPill(
-            day: day,
-            entryCount: entryCount,
-            isSelected: isSelected,
-            isToday: isToday,
-            onTap: () => onDaySelected(day),
+          return KeyedSubtree(
+            key: _dayKeys[index],
+            child: _DayPill(
+              day: day,
+              entryCount: entryCount,
+              isSelected: isSelected,
+              isToday: isToday,
+              onTap: () => widget.onDaySelected(day),
+            ),
           );
         },
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemCount: week.days.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemCount: widget.week.days.length,
       ),
     );
   }
@@ -354,17 +417,22 @@ class _DayPill extends StatelessWidget {
         ? AppColors.primarySoft
         : Colors.white;
     final foregroundColor = isSelected ? Colors.white : AppColors.heading;
+    final captionColor = isSelected
+        ? Colors.white.withValues(alpha: 0.82)
+        : isToday
+        ? AppColors.primaryDark
+        : AppColors.muted;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 82,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        width: 68,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? Colors.transparent
@@ -383,15 +451,17 @@ class _DayPill extends StatelessWidget {
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
             Text(
-              _shortDay(day.weekday),
+              _shortDayLetter(day.weekday),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: foregroundColor.withValues(alpha: 0.8),
+                color: captionColor,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               '${day.day}',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -401,7 +471,8 @@ class _DayPill extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              constraints: const BoxConstraints(minWidth: 26),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.16)
@@ -409,9 +480,10 @@ class _DayPill extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                entryCount == 0 ? 'Open' : '$entryCount',
+                entryCount == 0 ? '-' : '$entryCount',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: isSelected ? Colors.white : AppColors.body,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -811,8 +883,8 @@ IconData _iconForSlot(MealSlotType slotType) {
   }
 }
 
-String _shortDay(int weekday) {
-  const days = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+String _shortDayLetter(int weekday) {
+  const days = <String>['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   return days[weekday - 1];
 }
 
