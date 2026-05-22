@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/auth_status.dart';
 import '../../providers/auth_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../widgets/app_panels.dart';
 import '../dashboard/dashboard_page.dart';
 import 'login_page.dart';
 import 'verify_email_page.dart';
@@ -38,39 +38,14 @@ class _AuthLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[Color(0xFFEAF7F0), AppColors.background],
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              SizedBox(
-                width: 64,
-                height: 64,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.restaurant_menu_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-              CircularProgressIndicator(),
-              SizedBox(height: 14),
-              Text('Preparing your meal planner...'),
-            ],
+    return const AppScaffold(
+      useAppBar: false,
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: AppLoadingState(
+            message: 'Preparing your meal planner...',
+            icon: Icons.restaurant_menu_rounded,
           ),
         ),
       ),

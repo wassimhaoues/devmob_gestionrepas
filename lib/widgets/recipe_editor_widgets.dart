@@ -84,16 +84,10 @@ class RecipeEditorBlock extends StatelessWidget {
       margin: margin,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
         border: Border.all(color: AppColors.border),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: AppShadows.card,
       ),
       child: child,
     );
@@ -205,11 +199,11 @@ class _EmptyPhotoPreview extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[Color(0xFFF2FAF5), Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.surfaceTint, AppColors.primarySoft],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
         border: Border.all(color: AppColors.borderStrong, width: 1.5),
       ),
       child: const Center(
@@ -243,12 +237,9 @@ class RecipeEditorWorkspaceIntro extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[AppColors.primary, AppColors.primaryDark],
-        ),
-        borderRadius: BorderRadius.circular(30),
+        gradient: AppGradients.brand,
+        borderRadius: BorderRadius.circular(AppRadii.xl),
+        boxShadow: AppShadows.hero(AppColors.primary),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,16 +270,16 @@ class RecipeEditorWorkspaceIntro extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.18),
                       ),
                     ),
                     child: Text(
                       highlight,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.white),
                     ),
                   ),
                 )
@@ -301,10 +292,7 @@ class RecipeEditorWorkspaceIntro extends StatelessWidget {
 }
 
 class RecipeEditorWorkspaceSummary extends StatelessWidget {
-  const RecipeEditorWorkspaceSummary({
-    super.key,
-    required this.items,
-  });
+  const RecipeEditorWorkspaceSummary({super.key, required this.items});
 
   final List<RecipeWorkspaceStat> items;
 
@@ -317,9 +305,7 @@ class RecipeEditorWorkspaceSummary extends StatelessWidget {
             .map(
               (item) => Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(
-                    right: item == items.last ? 0 : 10,
-                  ),
+                  padding: EdgeInsets.only(right: item == items.last ? 0 : 10),
                   child: _RecipeWorkspaceStatTile(item: item),
                 ),
               ),
@@ -354,26 +340,33 @@ class _RecipeWorkspaceStatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadii.md),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: item.backgroundColor,
-              borderRadius: BorderRadius.circular(12),
+              color: item.color,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(item.icon, color: item.color, size: 18),
+            child: Icon(item.icon, color: Colors.white, size: 18),
           ),
           const SizedBox(height: 10),
-          Text(item.value, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            item.value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: item.color,
+            ),
+          ),
           const SizedBox(height: 2),
           Text(item.label, style: Theme.of(context).textTheme.bodySmall),
         ],
@@ -390,7 +383,7 @@ class _MemoryPhotoPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppRadii.lg),
       child: Image.memory(bytes, fit: BoxFit.cover),
     );
   }
@@ -404,7 +397,7 @@ class _NetworkPhotoPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppRadii.lg),
       child: Image.network(
         imageUrl,
         fit: BoxFit.cover,
