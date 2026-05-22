@@ -96,15 +96,47 @@ class _AddRecipePageState extends State<AddRecipePage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: <Widget>[
-          const _EditorIntro(
+          RecipeEditorWorkspaceIntro(
             title: 'Build a recipe worth reusing',
             description:
                 'Capture the essentials now so planning and shopping stay easy later.',
+            highlights: const <String>[
+              'Clear ingredients',
+              'Fast meal planning',
+              'Better shopping output',
+            ],
+          ),
+          const SizedBox(height: 16),
+          RecipeEditorWorkspaceSummary(
+            items: <RecipeWorkspaceStat>[
+              RecipeWorkspaceStat(
+                label: 'Ingredients',
+                value: _ingredients.length.toString(),
+                icon: Icons.kitchen_outlined,
+                color: AppColors.amber,
+                backgroundColor: AppColors.amberSoft,
+              ),
+              RecipeWorkspaceStat(
+                label: 'Steps',
+                value: _steps.length.toString(),
+                icon: Icons.format_list_numbered,
+                color: AppColors.indigo,
+                backgroundColor: AppColors.indigoSoft,
+              ),
+              RecipeWorkspaceStat(
+                label: 'Photo',
+                value: _selectedImage == null ? 'Optional' : 'Ready',
+                icon: Icons.photo_camera_back_outlined,
+                color: AppColors.primary,
+                backgroundColor: AppColors.primarySoft,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           RecipeEditorSection(
             title: 'Recipe information',
             subtitle: 'Start with the core details for this dish.',
+            icon: Icons.description_outlined,
             children: <Widget>[
               TextField(
                 controller: _titleController,
@@ -147,6 +179,8 @@ class _AddRecipePageState extends State<AddRecipePage> {
           RecipeEditorSection(
             title: 'Ingredients',
             subtitle: 'Use clear names so the shopping list stays readable.',
+            icon: Icons.kitchen_outlined,
+            accentColor: AppColors.amber,
             trailing: IconButton(
               onPressed: _addIngredient,
               icon: const Icon(Icons.add),
@@ -166,6 +200,8 @@ class _AddRecipePageState extends State<AddRecipePage> {
           RecipeEditorSection(
             title: 'Preparation steps',
             subtitle: 'Keep each instruction short and actionable.',
+            icon: Icons.format_list_numbered,
+            accentColor: AppColors.indigo,
             trailing: IconButton(
               onPressed: _addStep,
               icon: const Icon(Icons.add),
@@ -185,6 +221,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
           RecipeEditorSection(
             title: 'Optional recipe photo',
             subtitle: 'A photo makes the recipe easier to spot while planning.',
+            icon: Icons.photo_camera_back_outlined,
             children: <Widget>[
               RecipeEditorPhotoField(
                 selectedBytes: _selectedImage?.bytes,
@@ -251,46 +288,6 @@ class _AddRecipePageState extends State<AddRecipePage> {
       );
       _submitErrors = const <String>[];
     });
-  }
-}
-
-class _EditorIntro extends StatelessWidget {
-  const _EditorIntro({required this.title, required this.description});
-
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[AppColors.primary, AppColors.primaryDark],
-        ),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFE4F4EA)),
-          ),
-        ],
-      ),
-    );
   }
 }
 

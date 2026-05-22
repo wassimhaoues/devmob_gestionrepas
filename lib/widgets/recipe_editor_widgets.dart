@@ -11,12 +11,16 @@ class RecipeEditorSection extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
+    this.icon = Icons.tune,
+    this.accentColor = AppColors.primary,
     required this.children,
   });
 
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final IconData icon;
+  final Color accentColor;
   final List<Widget> children;
 
   @override
@@ -28,6 +32,16 @@ class RecipeEditorSection extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: accentColor),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,11 +82,18 @@ class RecipeEditorBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: margin,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceTint,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: child,
     );
@@ -144,9 +165,12 @@ class RecipeEditorPhotoField extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: <Widget>[
-            Expanded(
+            SizedBox(
+              width: 180,
               child: OutlinedButton.icon(
                 onPressed: onPickImage == null ? null : () => onPickImage!(),
                 icon: const Icon(Icons.photo_library_outlined),
@@ -157,14 +181,15 @@ class RecipeEditorPhotoField extends StatelessWidget {
                 ),
               ),
             ),
-            if (onRemoveImage != null) ...<Widget>[
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: onRemoveImage,
-                tooltip: 'Remove photo',
-                icon: const Icon(Icons.delete_outline),
+            if (onRemoveImage != null)
+              SizedBox(
+                width: 140,
+                child: OutlinedButton.icon(
+                  onPressed: onRemoveImage,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Remove'),
+                ),
               ),
-            ],
           ],
         ),
       ],
@@ -196,6 +221,162 @@ class _EmptyPhotoPreview extends StatelessWidget {
             Text('No photo selected'),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class RecipeEditorWorkspaceIntro extends StatelessWidget {
+  const RecipeEditorWorkspaceIntro({
+    super.key,
+    required this.title,
+    required this.description,
+    required this.highlights,
+  });
+
+  final String title;
+  final String description;
+  final List<String> highlights;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.primary, AppColors.primaryDark],
+        ),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFE4F4EA)),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: highlights
+                .map(
+                  (highlight) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Text(
+                      highlight,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RecipeEditorWorkspaceSummary extends StatelessWidget {
+  const RecipeEditorWorkspaceSummary({
+    super.key,
+    required this.items,
+  });
+
+  final List<RecipeWorkspaceStat> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      backgroundColor: AppColors.surfaceTint,
+      child: Row(
+        children: items
+            .map(
+              (item) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: item == items.last ? 0 : 10,
+                  ),
+                  child: _RecipeWorkspaceStatTile(item: item),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class RecipeWorkspaceStat {
+  const RecipeWorkspaceStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final Color backgroundColor;
+}
+
+class _RecipeWorkspaceStatTile extends StatelessWidget {
+  const _RecipeWorkspaceStatTile({required this.item});
+
+  final RecipeWorkspaceStat item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: item.backgroundColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(item.icon, color: item.color, size: 18),
+          ),
+          const SizedBox(height: 10),
+          Text(item.value, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 2),
+          Text(item.label, style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }

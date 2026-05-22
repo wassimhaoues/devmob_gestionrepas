@@ -10,6 +10,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/meal_plan_provider.dart';
 import '../../providers/shopping_list_provider.dart';
 import '../../services/shopping/local_shopping_list_state_service.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/app_panels.dart';
 
 const String shoppingListRoute = '/shopping-list';
 
@@ -25,6 +27,7 @@ class ShoppingListPage extends StatefulWidget {
 class _ShoppingListPageState extends State<ShoppingListPage> {
   String? _lastSyncedMealPlanUid;
   String? _lastLoadSignature;
+  bool _isPendingExpanded = true;
   bool _isCompletedExpanded = false;
 
   @override
@@ -47,8 +50,8 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       ),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: [
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: <Widget>[
           _HeroHeader(
             week: week,
             pendingCount: shoppingProvider.pendingItems.length,
@@ -111,10 +114,14 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                 shoppingProvider: shoppingProvider,
               ),
             )
-          else ...[
+          else ...<Widget>[
             _PendingSection(
               mealPlanEntries: mealPlanProvider.entries,
               items: shoppingProvider.pendingItems,
+              isExpanded: _isPendingExpanded,
+              onToggleExpanded: () {
+                setState(() => _isPendingExpanded = !_isPendingExpanded);
+              },
               onToggle: shoppingProvider.completePendingItem,
             ),
             const SizedBox(height: 16),
@@ -173,7 +180,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
           content: Text(
             'How would you like to return ${item.displayName} to your shopping list?',
           ),
-          actions: [
+          actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
@@ -279,40 +286,55 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final total = pendingCount + completedCount;
     final progress = total == 0 ? 0.0 : completedCount / total;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[
-            colorScheme.primaryContainer,
-            colorScheme.surfaceContainerHighest,
-          ],
+          colors: <Color>[AppColors.primary, AppColors.indigo],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.indigo.withValues(alpha: 0.22),
+            blurRadius: 26,
+            offset: const Offset(0, 14),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: <Widget>[
           Row(
-            children: [
+            children: <Widget>[
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: <Widget>[
                     Text(
                       'Shopping List',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       '${_formatDate(week.startDate)} - ${_formatDate(week.endDate)}',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      pendingCount == 0
+                          ? 'You are caught up for this week.'
+                          : 'Check items as you shop and they will move into completed history.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
                     ),
                   ],
                 ),
@@ -325,22 +347,117 @@ class _HeroHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              _HeroTag(
+                icon: Icons.shopping_bag_outlined,
+                label: '$pendingCount to buy',
+              ),
+              _HeroTag(
+                icon: Icons.check_circle_outline,
+                label: '$completedCount completed',
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
           Row(
-            children: [
-              _ActionPill(
-                icon: Icons.chevron_left,
-                label: 'Previous',
-                onTap: isLoading ? null : () => unawaited(onPreviousWeek()),
+            children: <Widget>[
+              Expanded(
+                child: _HeroAction(
+                  icon: Icons.chevron_left,
+                  label: 'Previous Week',
+                  onTap: isLoading ? null : () => unawaited(onPreviousWeek()),
+                ),
               ),
               const SizedBox(width: 10),
-              _ActionPill(
-                icon: Icons.chevron_right,
-                label: 'Next',
-                onTap: isLoading ? null : () => unawaited(onNextWeek()),
+              Expanded(
+                child: _HeroAction(
+                  icon: Icons.chevron_right,
+                  label: 'Next Week',
+                  onTap: isLoading ? null : () => unawaited(onNextWeek()),
+                ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroTag extends StatelessWidget {
+  const _HeroTag({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroAction extends StatelessWidget {
+  const _HeroAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: enabled
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(icon, size: 18, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -361,64 +478,61 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Weekly summary',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatTile(
-                    label: 'Meals',
-                    value: mealCount.toString(),
-                    icon: Icons.calendar_month_outlined,
-                  ),
+    return AppPanel(
+      backgroundColor: AppColors.surfaceTint,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const AppSectionTitle('Weekly Summary'),
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _StatTile(
+                  label: 'Meals',
+                  value: mealCount.toString(),
+                  icon: Icons.calendar_month_outlined,
+                  accentColor: AppColors.indigo,
+                  backgroundColor: AppColors.indigoSoft,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatTile(
-                    label: 'To buy',
-                    value: pendingCount.toString(),
-                    icon: Icons.shopping_basket_outlined,
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatTile(
+                  label: 'To buy',
+                  value: pendingCount.toString(),
+                  icon: Icons.shopping_basket_outlined,
+                  accentColor: AppColors.amber,
+                  backgroundColor: AppColors.amberSoft,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatTile(
-                    label: 'Completed',
-                    value: completedCount.toString(),
-                    icon: Icons.check_circle_outline,
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatTile(
+                  label: 'Done',
+                  value: completedCount.toString(),
+                  icon: Icons.check_circle_outline,
+                  accentColor: AppColors.primary,
+                  backgroundColor: AppColors.primarySoft,
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              mealCount == 0
-                  ? 'No meals are planned yet for this week.'
-                  : 'Pending items come from this week\'s meal plan. Completed items stay frozen as your shopping history.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (generatedAt != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Last generated ${_formatDateTime(generatedAt!)}',
-                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            mealCount == 0
+                ? 'No meals are planned yet for this week.'
+                : 'Pending items come from this week\'s meal plan. Completed items stay frozen as your shopping history.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (generatedAt != null) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              'Last generated ${_formatDateTime(generatedAt!)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -428,11 +542,15 @@ class _PendingSection extends StatelessWidget {
   const _PendingSection({
     required this.mealPlanEntries,
     required this.items,
+    required this.isExpanded,
+    required this.onToggleExpanded,
     required this.onToggle,
   });
 
   final List<MealPlanEntry> mealPlanEntries;
   final List<ShoppingListItem> items;
+  final bool isExpanded;
+  final VoidCallback onToggleExpanded;
   final Future<void> Function(String itemId) onToggle;
 
   @override
@@ -455,52 +573,45 @@ class _PendingSection extends StatelessWidget {
       );
     }
 
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+    return AppPanel(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: <Widget>[
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onToggleExpanded,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: Row(
-                children: [
-                  Text(
-                    'To Buy',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${items.length} active',
-                      style: Theme.of(context).textTheme.labelMedium,
+                children: <Widget>[
+                  const Expanded(
+                    child: _SectionHeader(
+                      title: 'To Buy',
+                      subtitle: 'Check items as they go into your cart.',
+                      icon: Icons.shopping_bag_outlined,
+                      accentColor: AppColors.amber,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  _CountBadge(label: '${items.length} active'),
+                  const SizedBox(width: 8),
+                  Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
                 ],
               ),
             ),
-            for (var index = 0; index < items.length; index++) ...[
+          ),
+          if (isExpanded) ...<Widget>[
+            const SizedBox(height: 12),
+            for (var index = 0; index < items.length; index++) ...<Widget>[
               _PendingIngredientTile(item: items[index], onToggle: onToggle),
               if (index < items.length - 1)
-                Divider(
-                  height: 1,
-                  indent: 14,
-                  endIndent: 14,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6),
+                  child: Divider(height: 1),
                 ),
             ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -521,68 +632,103 @@ class _CompletedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: onToggleExpanded,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                child: Row(
-                  children: [
-                    Text(
-                      'Completed',
-                      style: Theme.of(context).textTheme.titleMedium,
+    return AppPanel(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: <Widget>[
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onToggleExpanded,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Row(
+                children: <Widget>[
+                  const Expanded(
+                    child: _SectionHeader(
+                      title: 'Completed',
+                      subtitle: 'Tap a batch to reopen it if needed.',
+                      icon: Icons.check_circle_outline,
+                      accentColor: AppColors.primary,
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${items.length} batch${items.length == 1 ? '' : 'es'}',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  _CountBadge(
+                    label: '${items.length} batch${items.length == 1 ? '' : 'es'}',
+                    accentColor: AppColors.primarySoft,
+                    textColor: AppColors.primaryDark,
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                ],
               ),
             ),
-            if (isExpanded && items.isEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(8, 6, 8, 10),
-                child: Text('Nothing completed yet.'),
+          ),
+          if (isExpanded && items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
+              child: Text(
+                'Nothing completed yet.',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-            if (isExpanded)
-              for (var index = 0; index < items.length; index++) ...[
-                _CompletedIngredientTile(
-                  item: items[index],
-                  onReopenItem: onReopenItem,
+            ),
+          if (isExpanded) ...<Widget>[
+            const SizedBox(height: 8),
+            for (var index = 0; index < items.length; index++) ...<Widget>[
+              _CompletedIngredientTile(
+                item: items[index],
+                onReopenItem: onReopenItem,
+              ),
+              if (index < items.length - 1)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6),
+                  child: Divider(height: 1),
                 ),
-                if (index < items.length - 1)
-                  Divider(
-                    height: 1,
-                    indent: 14,
-                    endIndent: 14,
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
-              ],
+            ],
           ],
-        ),
+        ],
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accentColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(icon, color: accentColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 2),
+              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -596,28 +742,41 @@ class _PendingIngredientTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       onTap: () => unawaited(onToggle(item.id)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: item.isNewBatch ? AppColors.amberSoft.withValues(alpha: 0.45) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Row(
-          children: [
-            Checkbox(
-              value: false,
-              onChanged: (_) => unawaited(onToggle(item.id)),
+          children: <Widget>[
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderStrong),
+              ),
+              child: Checkbox(
+                value: false,
+                onChanged: (_) => unawaited(onToggle(item.id)),
+              ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: <Widget>[
                   Row(
-                    children: [
+                    children: <Widget>[
                       Expanded(
                         child: Text(
                           item.displayName,
                           style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
                       if (item.isNewBatch) const _TinyBadge(label: 'New'),
@@ -657,23 +816,35 @@ class _CompletedIngredientTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final completedAt = item.completedAt;
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       onTap: () => unawaited(onReopenItem(item)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primarySoft.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green),
+          children: <Widget>[
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.check_circle, color: AppColors.primary),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: <Widget>[
                   Text(
                     item.displayName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       decoration: TextDecoration.lineThrough,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -705,16 +876,24 @@ class _QuantityPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      constraints: const BoxConstraints(minWidth: 92),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: Theme.of(
           context,
-        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ).textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.heading,
+        ),
       ),
     );
   }
@@ -730,14 +909,44 @@ class _TinyBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.tertiaryContainer,
+        color: AppColors.amberSoft,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: AppColors.amber,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({
+    required this.label,
+    this.accentColor = AppColors.surfaceTint,
+    this.textColor = AppColors.heading,
+  });
+
+  final String label;
+  final Color accentColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: accentColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: textColor,
+        ),
       ),
     );
   }
@@ -756,14 +965,21 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
+    return AppPanel(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
-          children: [
-            Icon(icon, size: 40),
-            const SizedBox(height: 12),
+          children: <Widget>[
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(icon, size: 28, color: AppColors.primary),
+            ),
+            const SizedBox(height: 14),
             Text(title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
@@ -786,28 +1002,23 @@ class _ErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Theme.of(
-        context,
-      ).colorScheme.errorContainer.withValues(alpha: 0.55),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => unawaited(onRetry()),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try again'),
-            ),
-          ],
-        ),
+    return AppPanel(
+      backgroundColor: AppColors.dangerSoft,
+      borderColor: AppColors.danger.withValues(alpha: 0.18),
+      child: Column(
+        children: <Widget>[
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => unawaited(onRetry()),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Try again'),
+          ),
+        ],
       ),
     );
   }
@@ -827,74 +1038,45 @@ class _ProgressBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 72,
-      height: 72,
+      width: 82,
+      height: 82,
       child: Stack(
         alignment: Alignment.center,
-        children: [
+        children: <Widget>[
           CircularProgressIndicator(
             value: progress,
             strokeWidth: 7,
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.surface.withValues(alpha: 0.65),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            backgroundColor: Colors.white.withValues(alpha: 0.25),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$completedCount',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  children: <InlineSpan>[
+                    TextSpan(
+                      text: '$completedCount',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '/$totalCount',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              Text(
-                '/$totalCount',
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            ],
+            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ActionPill extends StatelessWidget {
-  const _ActionPill({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: enabled
-              ? colorScheme.surface.withValues(alpha: 0.85)
-              : colorScheme.surface.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 6),
-            Text(label),
-          ],
-        ),
       ),
     );
   }
@@ -905,31 +1087,43 @@ class _StatTile extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
+    required this.accentColor,
+    required this.backgroundColor,
   });
 
   final String label;
   final String value;
   final IconData icon;
+  final Color accentColor;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: colorScheme.primary),
-          const SizedBox(height: 8),
+        children: <Widget>[
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 18, color: accentColor),
+          ),
+          const SizedBox(height: 10),
           Text(
             value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 2),
           Text(label, style: Theme.of(context).textTheme.bodySmall),

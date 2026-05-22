@@ -85,8 +85,7 @@ void main() {
       ),
     );
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
 
     expect(find.text('Tomato Soup'), findsOneWidget);
     expect(find.text('Favorite Pasta'), findsOneWidget);
@@ -140,8 +139,7 @@ void main() {
       ),
     );
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Tomato Soup'));
     await tester.pump();
 
