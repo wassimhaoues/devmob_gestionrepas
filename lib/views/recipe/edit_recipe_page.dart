@@ -107,15 +107,51 @@ class _EditRecipePageState extends State<EditRecipePage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: <Widget>[
-          const _EditorIntro(
+          RecipeEditorWorkspaceIntro(
             title: 'Refine your recipe',
             description:
                 'Tighten the details so the rest of your planning flow stays accurate.',
+            highlights: const <String>[
+              'Update ingredients',
+              'Keep steps tidy',
+              'Refresh recipe photo',
+            ],
+          ),
+          const SizedBox(height: 16),
+          RecipeEditorWorkspaceSummary(
+            items: <RecipeWorkspaceStat>[
+              RecipeWorkspaceStat(
+                label: 'Ingredients',
+                value: _ingredients.length.toString(),
+                icon: Icons.kitchen_outlined,
+                color: AppColors.amber,
+                backgroundColor: AppColors.amberSoft,
+              ),
+              RecipeWorkspaceStat(
+                label: 'Steps',
+                value: _steps.length.toString(),
+                icon: Icons.format_list_numbered,
+                color: AppColors.indigo,
+                backgroundColor: AppColors.indigoSoft,
+              ),
+              RecipeWorkspaceStat(
+                label: 'Photo',
+                value: (_selectedImage != null ||
+                        (!_removeExistingImage &&
+                            (_existingImageUrl ?? '').isNotEmpty))
+                    ? 'Ready'
+                    : 'Optional',
+                icon: Icons.photo_camera_back_outlined,
+                color: AppColors.primary,
+                backgroundColor: AppColors.primarySoft,
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           RecipeEditorSection(
             title: 'Recipe information',
             subtitle: 'Keep the basics clear and easy to scan.',
+            icon: Icons.description_outlined,
             children: <Widget>[
               TextField(
                 controller: _titleController,
@@ -158,6 +194,8 @@ class _EditRecipePageState extends State<EditRecipePage> {
           RecipeEditorSection(
             title: 'Ingredients',
             subtitle: 'These values drive the shopping list output.',
+            icon: Icons.kitchen_outlined,
+            accentColor: AppColors.amber,
             trailing: IconButton(
               onPressed: _addIngredient,
               icon: const Icon(Icons.add),
@@ -177,6 +215,8 @@ class _EditRecipePageState extends State<EditRecipePage> {
           RecipeEditorSection(
             title: 'Preparation steps',
             subtitle: 'Make the sequence easy to follow at a glance.',
+            icon: Icons.format_list_numbered,
+            accentColor: AppColors.indigo,
             trailing: IconButton(
               onPressed: _addStep,
               icon: const Icon(Icons.add),
@@ -196,6 +236,7 @@ class _EditRecipePageState extends State<EditRecipePage> {
           RecipeEditorSection(
             title: 'Recipe photo',
             subtitle: 'Replace or remove the current image whenever needed.',
+            icon: Icons.photo_camera_back_outlined,
             children: <Widget>[
               RecipeEditorPhotoField(
                 selectedBytes: _selectedImage?.bytes,
@@ -400,45 +441,6 @@ class _EditRecipePageState extends State<EditRecipePage> {
   }
 }
 
-class _EditorIntro extends StatelessWidget {
-  const _EditorIntro({required this.title, required this.description});
-
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[AppColors.primary, AppColors.primaryDark],
-        ),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFE4F4EA)),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _IngredientFields extends StatelessWidget {
   const _IngredientFields({

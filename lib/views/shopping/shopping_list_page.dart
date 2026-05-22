@@ -27,6 +27,7 @@ class ShoppingListPage extends StatefulWidget {
 class _ShoppingListPageState extends State<ShoppingListPage> {
   String? _lastSyncedMealPlanUid;
   String? _lastLoadSignature;
+  bool _isPendingExpanded = true;
   bool _isCompletedExpanded = false;
 
   @override
@@ -117,6 +118,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
             _PendingSection(
               mealPlanEntries: mealPlanProvider.entries,
               items: shoppingProvider.pendingItems,
+              isExpanded: _isPendingExpanded,
+              onToggleExpanded: () {
+                setState(() => _isPendingExpanded = !_isPendingExpanded);
+              },
               onToggle: shoppingProvider.completePendingItem,
             ),
             const SizedBox(height: 16),
@@ -537,11 +542,15 @@ class _PendingSection extends StatelessWidget {
   const _PendingSection({
     required this.mealPlanEntries,
     required this.items,
+    required this.isExpanded,
+    required this.onToggleExpanded,
     required this.onToggle,
   });
 
   final List<MealPlanEntry> mealPlanEntries;
   final List<ShoppingListItem> items;
+  final bool isExpanded;
+  final VoidCallback onToggleExpanded;
   final Future<void> Function(String itemId) onToggle;
 
   @override
@@ -568,25 +577,39 @@ class _PendingSection extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Column(
         children: <Widget>[
-          const _SectionHeader(
-            title: 'To Buy',
-            subtitle: 'Check items as they go into your cart.',
-            icon: Icons.shopping_bag_outlined,
-            accentColor: AppColors.amber,
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _CountBadge(label: '${items.length} active'),
-          ),
-          const SizedBox(height: 12),
-          for (var index = 0; index < items.length; index++) ...<Widget>[
-            _PendingIngredientTile(item: items[index], onToggle: onToggle),
-            if (index < items.length - 1)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 6),
-                child: Divider(height: 1),
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onToggleExpanded,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Row(
+                children: <Widget>[
+                  const Expanded(
+                    child: _SectionHeader(
+                      title: 'To Buy',
+                      subtitle: 'Check items as they go into your cart.',
+                      icon: Icons.shopping_bag_outlined,
+                      accentColor: AppColors.amber,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _CountBadge(label: '${items.length} active'),
+                  const SizedBox(width: 8),
+                  Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                ],
               ),
+            ),
+          ),
+          if (isExpanded) ...<Widget>[
+            const SizedBox(height: 12),
+            for (var index = 0; index < items.length; index++) ...<Widget>[
+              _PendingIngredientTile(item: items[index], onToggle: onToggle),
+              if (index < items.length - 1)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6),
+                  child: Divider(height: 1),
+                ),
+            ],
           ],
         ],
       ),
