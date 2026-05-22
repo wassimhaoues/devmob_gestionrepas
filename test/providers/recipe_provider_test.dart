@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/ingredient_unit.dart';
 import 'package:devmob_gestionrepas/models/meal_plan_entry.dart';
 import 'package:devmob_gestionrepas/models/processed_recipe_image.dart';
 import 'package:devmob_gestionrepas/models/recipe.dart';
@@ -87,7 +88,7 @@ void main() {
             displayName: '  Tómatoes  ',
             canonicalName: '',
             quantity: 2,
-            unit: '  pieces  ',
+            unit: IngredientUnit.piece,
           ),
         ],
         steps: const <RecipeStep>[
@@ -146,7 +147,7 @@ void main() {
           displayName: 'Eggs',
           canonicalName: 'egg',
           quantity: 2,
-          unit: 'piece',
+          unit: IngredientUnit.piece,
         ),
       ],
       steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
@@ -259,7 +260,7 @@ void main() {
           displayName: 'Tomatoes',
           canonicalName: 'tomato',
           quantity: 2,
-          unit: 'pieces',
+          unit: IngredientUnit.piece,
         ),
       ],
       steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
@@ -301,7 +302,7 @@ void main() {
           displayName: 'Eggs',
           canonicalName: 'egg',
           quantity: 2,
-          unit: 'piece',
+          unit: IngredientUnit.piece,
         ),
       ],
       steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],
@@ -556,7 +557,7 @@ Recipe _sampleRecipe({required String id, required String ownerUid}) {
         displayName: 'Eggs',
         canonicalName: 'egg',
         quantity: 2,
-        unit: 'piece',
+        unit: IngredientUnit.piece,
       ),
     ],
     steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],

@@ -1,4 +1,5 @@
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/ingredient_unit.dart';
 import 'package:devmob_gestionrepas/models/meal_plan_entry.dart';
 import 'package:devmob_gestionrepas/models/meal_slot_type.dart';
 import 'package:devmob_gestionrepas/models/recipe.dart';
@@ -28,7 +29,7 @@ void main() {
             displayName: 'Tomatoes',
             canonicalName: 'tomato',
             quantity: 2,
-            unit: 'piece',
+            unit: IngredientUnit.piece,
           ),
         ],
       );
@@ -39,7 +40,7 @@ void main() {
             displayName: 'Tomato',
             canonicalName: 'tomato',
             quantity: 3,
-            unit: 'piece',
+            unit: IngredientUnit.piece,
           ),
         ],
       );
@@ -64,7 +65,8 @@ void main() {
     },
   );
 
-  test('keeps rows separate when units differ', () async {
+  test('merges same-ingredient quantities when units are in the same dimension',
+      () async {
     recipeService.recipesById['recipe-1'] = _recipe(
       id: 'recipe-1',
       ingredients: const <Ingredient>[
@@ -72,7 +74,7 @@ void main() {
           displayName: 'Rice',
           canonicalName: 'rice',
           quantity: 1,
-          unit: 'kg',
+          unit: IngredientUnit.kg,
         ),
       ],
     );
@@ -83,7 +85,45 @@ void main() {
           displayName: 'Rice',
           canonicalName: 'rice',
           quantity: 500,
-          unit: 'g',
+          unit: IngredientUnit.g,
+        ),
+      ],
+    );
+
+    final shoppingList = await generatorService.generateForWeek(
+      uid: 'user-1',
+      weekStartDate: DateTime(2026, 5, 18),
+      entries: <MealPlanEntry>[
+        _entry(recipeId: 'recipe-1'),
+        _entry(recipeId: 'recipe-2', slotType: MealSlotType.lunch),
+      ],
+    );
+
+    expect(shoppingList.items, hasLength(1));
+    expect(shoppingList.items.first.unit, 'g');
+    expect(shoppingList.items.first.totalQuantity, 1500);
+  });
+
+  test('keeps rows separate when units span different dimensions', () async {
+    recipeService.recipesById['recipe-1'] = _recipe(
+      id: 'recipe-1',
+      ingredients: const <Ingredient>[
+        Ingredient(
+          displayName: 'Salt',
+          canonicalName: 'salt',
+          quantity: 10,
+          unit: IngredientUnit.g,
+        ),
+      ],
+    );
+    recipeService.recipesById['recipe-2'] = _recipe(
+      id: 'recipe-2',
+      ingredients: const <Ingredient>[
+        Ingredient(
+          displayName: 'Salt',
+          canonicalName: 'salt',
+          quantity: 1,
+          unit: IngredientUnit.tbsp,
         ),
       ],
     );
@@ -99,8 +139,8 @@ void main() {
 
     expect(shoppingList.items, hasLength(2));
     expect(
-      shoppingList.items.map((item) => item.unit),
-      containsAll(<String>['kg', 'g']),
+      shoppingList.items.map((i) => i.unit).toSet(),
+      containsAll(<String>['g', 'ml']),
     );
   });
 
@@ -112,7 +152,7 @@ void main() {
           displayName: 'Eggs',
           canonicalName: 'egg',
           quantity: 2,
-          unit: 'piece',
+          unit: IngredientUnit.piece,
         ),
       ],
     );
@@ -138,7 +178,7 @@ MealPlanEntry _entry({
   MealSlotType slotType = MealSlotType.breakfast,
 }) {
   return MealPlanEntry(
-    id: MealPlanEntry.buildId(date: DateTime(2026, 5, 18), slotType: slotType),
+    id: MealPlanEntry.buildId(date: DateTime(2026, 5, 18), slotType: slotType, recipeId: recipeId),
     ownerUid: 'user-1',
     date: DateTime(2026, 5, 18),
     slotType: slotType,

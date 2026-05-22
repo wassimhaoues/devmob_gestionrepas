@@ -6,12 +6,14 @@ import 'package:mime/mime.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/ingredient.dart';
+import '../../models/ingredient_unit.dart';
 import '../../models/recipe.dart';
 import '../../models/recipe_category.dart';
 import '../../models/recipe_image_selection.dart';
 import '../../models/recipe_step.dart';
 import '../../providers/recipe_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_panels.dart';
 import '../../widgets/recipe_editor_widgets.dart';
 
 const String editRecipeRoute = '/recipes/edit';
@@ -85,12 +87,23 @@ class _EditRecipePageState extends State<EditRecipePage> {
     final recipeId = _editingRecipeId;
 
     if (_isBootstrapping) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppScaffold(
+        useAppBar: false,
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: AppLoadingState(
+              message: 'Preparing the recipe editor...',
+              icon: Icons.edit_note_rounded,
+            ),
+          ),
+        ),
+      );
     }
 
     if (recipeId == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Edit recipe')),
+      return AppScaffold(
+        title: 'Edit recipe',
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -102,8 +115,8 @@ class _EditRecipePageState extends State<EditRecipePage> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Edit recipe')),
+    return AppScaffold(
+      title: 'Edit recipe',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: <Widget>[
@@ -136,7 +149,8 @@ class _EditRecipePageState extends State<EditRecipePage> {
               ),
               RecipeWorkspaceStat(
                 label: 'Photo',
-                value: (_selectedImage != null ||
+                value:
+                    (_selectedImage != null ||
                         (!_removeExistingImage &&
                             (_existingImageUrl ?? '').isNotEmpty))
                     ? 'Ready'
@@ -208,6 +222,8 @@ class _EditRecipePageState extends State<EditRecipePage> {
                   draft: _ingredients[i],
                   canRemove: _ingredients.length > 1,
                   onRemove: () => _removeIngredient(i),
+                  onUnitChanged: (unit) =>
+                      setState(() => _ingredients[i].selectedUnit = unit),
                 ),
             ],
           ),
@@ -274,7 +290,7 @@ class _EditRecipePageState extends State<EditRecipePage> {
         displayName: draft.nameController.text,
         canonicalName: '',
         quantity: quantity ?? 0,
-        unit: draft.unitController.text,
+        unit: draft.selectedUnit,
       );
     }).toList();
 
@@ -359,6 +375,7 @@ class _EditRecipePageState extends State<EditRecipePage> {
         ),
       );
     }
+
     if (_ingredients.isEmpty) {
       _ingredients.add(_IngredientDraft());
     }
@@ -441,19 +458,20 @@ class _EditRecipePageState extends State<EditRecipePage> {
   }
 }
 
-
 class _IngredientFields extends StatelessWidget {
   const _IngredientFields({
     required this.index,
     required this.draft,
     required this.canRemove,
     required this.onRemove,
+    required this.onUnitChanged,
   });
 
   final int index;
   final _IngredientDraft draft;
   final bool canRemove;
   final VoidCallback onRemove;
+  final ValueChanged<IngredientUnit> onUnitChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -498,12 +516,21 @@ class _IngredientFields extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: TextField(
-                  controller: draft.unitController,
-                  decoration: const InputDecoration(
-                    labelText: 'Unit',
-                    hintText: 'cup, g, tbsp',
-                  ),
+                child: DropdownButtonFormField<IngredientUnit>(
+                  initialValue: draft.selectedUnit,
+                  decoration: const InputDecoration(labelText: 'Unit'),
+                  isExpanded: true,
+                  items: IngredientUnit.values
+                      .map(
+                        (u) => DropdownMenuItem<IngredientUnit>(
+                          value: u,
+                          child: Text(u.displayLabel),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (u) {
+                    if (u != null) onUnitChanged(u);
+                  },
                 ),
               ),
             ],
@@ -562,18 +589,20 @@ class _StepField extends StatelessWidget {
 }
 
 class _IngredientDraft {
-  _IngredientDraft({String name = '', String quantity = '', String unit = ''})
-    : nameController = TextEditingController(text: name),
-      quantityController = TextEditingController(text: quantity),
-      unitController = TextEditingController(text: unit);
+  _IngredientDraft({
+    String name = '',
+    String quantity = '',
+    IngredientUnit unit = IngredientUnit.g,
+  }) : nameController = TextEditingController(text: name),
+       quantityController = TextEditingController(text: quantity),
+       selectedUnit = unit;
 
   final TextEditingController nameController;
   final TextEditingController quantityController;
-  final TextEditingController unitController;
+  IngredientUnit selectedUnit;
 
   void dispose() {
     nameController.dispose();
     quantityController.dispose();
-    unitController.dispose();
   }
 }

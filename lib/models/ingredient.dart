@@ -1,3 +1,5 @@
+import 'ingredient_unit.dart';
+
 class Ingredient {
   const Ingredient({
     required this.displayName,
@@ -9,13 +11,13 @@ class Ingredient {
   final String displayName;
   final String canonicalName;
   final double quantity;
-  final String unit;
+  final IngredientUnit unit;
 
   Ingredient copyWith({
     String? displayName,
     String? canonicalName,
     double? quantity,
-    String? unit,
+    IngredientUnit? unit,
   }) {
     return Ingredient(
       displayName: displayName ?? this.displayName,
@@ -30,7 +32,7 @@ class Ingredient {
       displayName: (data['displayName'] as String? ?? '').trim(),
       canonicalName: (data['canonicalName'] as String? ?? '').trim(),
       quantity: _readDouble(data['quantity']),
-      unit: (data['unit'] as String? ?? '').trim(),
+      unit: IngredientUnit.fromValue(data['unit'] as String? ?? ''),
     );
   }
 
@@ -39,7 +41,7 @@ class Ingredient {
       'displayName': displayName,
       'canonicalName': canonicalName,
       'quantity': quantity,
-      'unit': unit,
+      'unit': unit.value,
     };
   }
 

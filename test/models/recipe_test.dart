@@ -1,4 +1,5 @@
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/ingredient_unit.dart';
 import 'package:devmob_gestionrepas/models/recipe.dart';
 import 'package:devmob_gestionrepas/models/recipe_category.dart';
 import 'package:devmob_gestionrepas/models/recipe_step.dart';
@@ -19,7 +20,7 @@ void main() {
           displayName: 'Tomatoes',
           canonicalName: 'tomato',
           quantity: 2,
-          unit: 'piece',
+          unit: IngredientUnit.piece,
         ),
       ],
       steps: <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],

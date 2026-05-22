@@ -1,4 +1,5 @@
 import '../../models/ingredient.dart';
+import '../../models/ingredient_unit.dart';
 import '../../models/recipe_category.dart';
 import '../../models/recipe_step.dart';
 
@@ -55,9 +56,8 @@ class RecipeValidators {
     return null;
   }
 
-  static String? validateIngredientUnit(String? value) {
-    final normalized = (value ?? '').trim();
-    if (normalized.isEmpty) {
+  static String? validateIngredientUnit(IngredientUnit? value) {
+    if (value == null) {
       return 'Ingredient unit is required.';
     }
     return null;
@@ -106,7 +106,7 @@ class RecipeValidators {
       }
 
       final canonicalKey =
-          '${ingredient.canonicalName.trim().toLowerCase()}::${ingredient.unit.trim().toLowerCase()}';
+          '${ingredient.canonicalName.trim().toLowerCase()}::${ingredient.unit.value}';
       if (canonicalKey != '::' && !uniqueKeys.add(canonicalKey)) {
         errors.add(
           'Ingredient #$row duplicates a previous ingredient with the same canonical name and unit.',
