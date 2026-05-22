@@ -140,7 +140,7 @@ MealPlanEntry _sampleEntry({
   MealSlotType slotType = MealSlotType.breakfast,
 }) {
   return MealPlanEntry(
-    id: MealPlanEntry.buildId(date: date, slotType: slotType),
+    id: MealPlanEntry.buildId(date: date, slotType: slotType, recipeId: 'recipe-1'),
     ownerUid: 'user-1',
     date: date,
     slotType: slotType,

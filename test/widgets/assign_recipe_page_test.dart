@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:devmob_gestionrepas/models/app_user.dart';
 import 'package:devmob_gestionrepas/models/auth_failure.dart';
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/ingredient_unit.dart';
 import 'package:devmob_gestionrepas/models/meal_plan_assignment_args.dart';
 import 'package:devmob_gestionrepas/models/meal_plan_entry.dart';
 import 'package:devmob_gestionrepas/models/meal_slot_type.dart';
@@ -170,7 +171,7 @@ Recipe _recipe({
         displayName: 'Tomato',
         canonicalName: 'tomato',
         quantity: 1,
-        unit: 'piece',
+        unit: IngredientUnit.piece,
       ),
     ],
     steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook')],

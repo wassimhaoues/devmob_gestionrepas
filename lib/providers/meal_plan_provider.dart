@@ -150,10 +150,14 @@ class MealPlanProvider extends ChangeNotifier {
     _safeNotify();
 
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    final existingEntry = entryFor(date: normalizedDate, slotType: slotType);
+    final existingEntry = _entries.where((e) =>
+      e.slotType == slotType &&
+      _isSameDate(e.date, normalizedDate) &&
+      e.recipeId == recipeId,
+    ).firstOrNull;
     final now = DateTime.now();
     final entry = MealPlanEntry(
-      id: MealPlanEntry.buildId(date: normalizedDate, slotType: slotType),
+      id: MealPlanEntry.buildId(date: normalizedDate, slotType: slotType, recipeId: recipeId),
       ownerUid: currentUid,
       date: normalizedDate,
       slotType: slotType,
@@ -241,6 +245,40 @@ class MealPlanProvider extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  List<MealPlanEntry> entriesForSlot({
+    required DateTime date,
+    required MealSlotType slotType,
+  }) {
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    return _entries
+        .where((e) => e.slotType == slotType && _isSameDate(e.date, normalizedDate))
+        .toList();
+  }
+
+  Future<bool> removeEntry(String entryId) async {
+    final currentUid = _uid;
+    if (currentUid == null) {
+      return false;
+    }
+
+    _status = MealPlanProviderStatus.mutating;
+    _errorMessage = null;
+    _failure = null;
+    _safeNotify();
+
+    try {
+      await _mealPlanService.deleteEntry(uid: currentUid, entryId: entryId);
+      _entries = _entries.where((e) => e.id != entryId).toList();
+      _status = MealPlanProviderStatus.ready;
+      _failure = null;
+      _safeNotify();
+      return true;
+    } catch (error) {
+      _applyServiceError(error);
+      return false;
+    }
   }
 
   List<MealPlanEntry> entriesForDay(DateTime date) {
