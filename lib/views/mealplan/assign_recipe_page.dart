@@ -25,6 +25,7 @@ class AssignRecipePage extends StatefulWidget {
 
 class _AssignRecipePageState extends State<AssignRecipePage> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _selectedRecipeIds = <String>{};
 
   String? _lastLoadedUid;
   List<Recipe> _recipes = const <Recipe>[];
@@ -75,15 +76,43 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
       date: args.date,
       slotType: args.slotType,
     );
+    final assignedRecipeIds = currentEntries
+        .map((entry) => entry.recipeId.trim())
+        .toSet();
+    final isSaving = mealPlanProvider.status == MealPlanProviderStatus.mutating;
 
     return AppScaffold(
       title: 'Assign Recipe',
+      bottomNavigationBar: _selectedRecipeIds.isEmpty
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: FilledButton.icon(
+                  onPressed: isSaving ? null : () => _assignSelectedRecipes(args),
+                  icon: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.done_rounded),
+                  label: Text(
+                    isSaving
+                        ? 'Saving...'
+                        : 'Done (${_selectedRecipeIds.length})',
+                  ),
+                ),
+              ),
+            ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
         children: <Widget>[
           _AssignmentHero(
             args: args,
             assignedTitles: currentEntries.map((e) => e.recipeTitle).toList(),
+            selectedCount: _selectedRecipeIds.length,
           ),
           const SizedBox(height: 12),
           AppPanel(
@@ -154,10 +183,10 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RecipeSelectionCard(
                   recipe: recipe,
-                  isSaving:
-                      mealPlanProvider.status ==
-                      MealPlanProviderStatus.mutating,
-                  onTap: () => _assignRecipe(args, recipe),
+                  isSaving: isSaving,
+                  isSelected: _selectedRecipeIds.contains(recipe.id.trim()),
+                  isAssigned: assignedRecipeIds.contains(recipe.id.trim()),
+                  onTap: () => _toggleSelection(recipe, assignedRecipeIds),
                 ),
               ),
             ),
@@ -236,40 +265,80 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
     }
   }
 
-  Future<void> _assignRecipe(MealPlanAssignmentArgs args, Recipe recipe) async {
+  void _toggleSelection(Recipe recipe, Set<String> assignedRecipeIds) {
+    final recipeId = recipe.id.trim();
+    if (recipeId.isEmpty || assignedRecipeIds.contains(recipeId)) {
+      return;
+    }
+    setState(() {
+      if (_selectedRecipeIds.contains(recipeId)) {
+        _selectedRecipeIds.remove(recipeId);
+      } else {
+        _selectedRecipeIds.add(recipeId);
+      }
+    });
+  }
+
+  Future<void> _assignSelectedRecipes(MealPlanAssignmentArgs args) async {
     final provider = context.read<MealPlanProvider>();
-    final errors = await provider.assignRecipeToSlot(
-      date: args.date,
-      slotType: args.slotType,
-      recipe: recipe,
-    );
+    final selectedRecipes = _recipes
+        .where((recipe) => _selectedRecipeIds.contains(recipe.id.trim()))
+        .toList(growable: false);
+    if (selectedRecipes.isEmpty) {
+      return;
+    }
+
+    String? firstError;
+    var savedCount = 0;
+    for (final recipe in selectedRecipes) {
+      final errors = await provider.assignRecipeToSlot(
+        date: args.date,
+        slotType: args.slotType,
+        recipe: recipe,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (errors.isNotEmpty) {
+        firstError ??= errors.first;
+        continue;
+      }
+      savedCount += 1;
+    }
 
     if (!mounted) {
       return;
     }
 
-    if (errors.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errors.first)));
+    if (firstError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(firstError)));
       return;
     }
 
+    setState(() => _selectedRecipeIds.clear());
+
+    final label = savedCount == 1 ? 'recipe' : 'recipes';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${recipe.title} added to ${args.slotType.label}'),
-        action: SnackBarAction(
-          label: 'Done',
-          onPressed: () => Navigator.of(context).pop(true),
-        ),
+        content: Text('$savedCount $label added to ${args.slotType.label}'),
       ),
     );
+    Navigator.of(context).pop(true);
   }
 }
 
 class _AssignmentHero extends StatelessWidget {
-  const _AssignmentHero({required this.args, required this.assignedTitles});
+  const _AssignmentHero({
+    required this.args,
+    required this.assignedTitles,
+    required this.selectedCount,
+  });
 
   final MealPlanAssignmentArgs args;
   final List<String> assignedTitles;
+  final int selectedCount;
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +364,7 @@ class _AssignmentHero extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             assignedTitles.isEmpty
-                ? 'Choose a recipe and it will appear in your weekly planner instantly.'
+                ? 'Tick one or more recipes, then tap Done to add them to this slot.'
                 : 'Already assigned: ${assignedTitles.join(', ')}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
@@ -310,6 +379,13 @@ class _AssignmentHero extends StatelessWidget {
                 _HeroPill(
                   icon: Icons.check_circle_outline,
                   label: '${assignedTitles.length} assigned',
+                ),
+              ],
+              if (selectedCount > 0) ...<Widget>[
+                const SizedBox(width: 8),
+                _HeroPill(
+                  icon: Icons.playlist_add_check_circle_outlined,
+                  label: '$selectedCount selected',
                 ),
               ],
             ],
@@ -382,21 +458,26 @@ class _RecipeSelectionCard extends StatelessWidget {
   const _RecipeSelectionCard({
     required this.recipe,
     required this.isSaving,
+    required this.isSelected,
+    required this.isAssigned,
     required this.onTap,
   });
 
   final Recipe recipe;
   final bool isSaving;
+  final bool isSelected;
+  final bool isAssigned;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final canSelect = !isSaving && !isAssigned;
     return AppPanel(
       padding: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        onTap: isSaving ? null : onTap,
+        onTap: canSelect ? onTap : null,
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -438,6 +519,12 @@ class _RecipeSelectionCard extends StatelessWidget {
                           label: recipe.category.label,
                           color: colorScheme.primary,
                         ),
+                        if (isAssigned)
+                          const AppStatusChip(
+                            label: 'Assigned',
+                            color: AppColors.success,
+                            icon: Icons.check_circle_rounded,
+                          ),
                         if (recipe.isFavorite)
                           const AppStatusChip(
                             label: 'Favorite',
@@ -450,17 +537,10 @@ class _RecipeSelectionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 18,
-                  color: AppColors.primary,
+              IgnorePointer(
+                child: Checkbox(
+                  value: isAssigned ? true : isSelected,
+                  onChanged: canSelect ? (_) => onTap() : null,
                 ),
               ),
             ],
