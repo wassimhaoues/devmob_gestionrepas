@@ -54,27 +54,36 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
   Widget build(BuildContext context) {
     final args = _resolveArgs(context);
     if (args == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Assign Recipe')),
-        body: const Center(child: Text('Meal slot is missing.')),
+      return const AppScaffold(
+        title: 'Assign Recipe',
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: AppMessageState(
+              icon: Icons.event_busy_rounded,
+              title: 'Meal slot is missing',
+              description: 'Open assignment from a meal-plan slot.',
+            ),
+          ),
+        ),
       );
     }
 
     final filteredRecipes = _buildFilteredRecipes();
     final mealPlanProvider = context.watch<MealPlanProvider>();
-    final currentEntry = mealPlanProvider.entryFor(
+    final currentEntries = mealPlanProvider.entriesForSlot(
       date: args.date,
       slotType: args.slotType,
     );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Assign Recipe')),
+    return AppScaffold(
+      title: 'Assign Recipe',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
         children: <Widget>[
           _AssignmentHero(
             args: args,
-            currentRecipeTitle: currentEntry?.recipeTitle,
+            assignedTitles: currentEntries.map((e) => e.recipeTitle).toList(),
           ),
           const SizedBox(height: 12),
           AppPanel(
@@ -123,7 +132,10 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.only(top: 48),
-              child: Center(child: CircularProgressIndicator()),
+              child: AppLoadingState(
+                message: 'Loading assignable recipes...',
+                icon: Icons.restaurant_menu,
+              ),
             )
           else if (_errorMessage != null)
             _ErrorState(
@@ -142,7 +154,8 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RecipeSelectionCard(
                   recipe: recipe,
-                  isSaving: mealPlanProvider.status ==
+                  isSaving:
+                      mealPlanProvider.status ==
                       MealPlanProviderStatus.mutating,
                   onTap: () => _assignRecipe(args, recipe),
                 ),
@@ -202,7 +215,9 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
     });
 
     try {
-      final recipes = await context.read<RecipeService>().fetchRecipes(uid: uid);
+      final recipes = await context.read<RecipeService>().fetchRecipes(
+        uid: uid,
+      );
       if (!mounted) {
         return;
       }
@@ -221,10 +236,7 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
     }
   }
 
-  Future<void> _assignRecipe(
-    MealPlanAssignmentArgs args,
-    Recipe recipe,
-  ) async {
+  Future<void> _assignRecipe(MealPlanAssignmentArgs args, Recipe recipe) async {
     final provider = context.read<MealPlanProvider>();
     final errors = await provider.assignRecipeToSlot(
       date: args.date,
@@ -236,67 +248,71 @@ class _AssignRecipePageState extends State<AssignRecipePage> {
       return;
     }
 
-    if (errors.isEmpty) {
-      Navigator.of(context).pop(true);
+    if (errors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errors.first)));
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(errors.first)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${recipe.title} added to ${args.slotType.label}'),
+        action: SnackBarAction(
+          label: 'Done',
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ),
+    );
   }
 }
 
 class _AssignmentHero extends StatelessWidget {
-  const _AssignmentHero({
-    required this.args,
-    required this.currentRecipeTitle,
-  });
+  const _AssignmentHero({required this.args, required this.assignedTitles});
 
   final MealPlanAssignmentArgs args;
-  final String? currentRecipeTitle;
+  final List<String> assignedTitles;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[AppColors.indigo, AppColors.primary],
-        ),
-        borderRadius: BorderRadius.circular(30),
+        gradient: AppGradients.brandAlt,
+        borderRadius: BorderRadius.circular(AppRadii.xl),
+        boxShadow: AppShadows.hero(AppColors.indigo),
       ),
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Assign a recipe to ${args.slotType.label}',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+            'Add a recipe to ${args.slotType.label}',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
           ),
           const SizedBox(height: 8),
           Text(
             _formatDay(args.date),
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: Colors.white),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
           ),
           const SizedBox(height: 8),
           Text(
-            currentRecipeTitle == null || currentRecipeTitle!.isEmpty
-                ? 'Choose a recipe that fits this slot and it will appear in your weekly planner instantly.'
-                : 'Currently assigned: $currentRecipeTitle',
+            assignedTitles.isEmpty
+                ? 'Choose a recipe and it will appear in your weekly planner instantly.'
+                : 'Already assigned: ${assignedTitles.join(', ')}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 12),
-          _HeroPill(
-            icon: Icons.schedule,
-            label: '${args.slotType.label} slot',
+          Row(
+            children: <Widget>[
+              _HeroPill(icon: Icons.schedule, label: '${args.slotType.label} slot'),
+              if (assignedTitles.isNotEmpty) ...<Widget>[
+                const SizedBox(width: 8),
+                _HeroPill(
+                  icon: Icons.check_circle_outline,
+                  label: '${assignedTitles.length} assigned',
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -326,9 +342,9 @@ class _HeroPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Colors.white,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: Colors.white),
           ),
         ],
       ),
@@ -386,35 +402,15 @@ class _RecipeSelectionCard extends StatelessWidget {
           child: Row(
             children: <Widget>[
               ClipRRect(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(AppRadii.md),
                 child: SizedBox(
                   width: 84,
                   height: 84,
-                  child: (recipe.imageUrl ?? '').isEmpty
-                      ? DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer,
-                          ),
-                          child: Icon(
-                            Icons.restaurant_menu,
-                            size: 28,
-                            color: colorScheme.primary,
-                          ),
-                        )
-                      : Image.network(
-                          recipe.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer,
-                            ),
-                            child: Icon(
-                              Icons.restaurant_menu,
-                              size: 28,
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ),
+                  child: AppImageFrame(
+                    imageUrl: recipe.imageUrl,
+                    semanticLabel: '${recipe.title} recipe image',
+                    radius: AppRadii.md,
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -438,14 +434,15 @@ class _RecipeSelectionCard extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: <Widget>[
-                        Chip(
-                          label: Text(recipe.category.label),
-                          visualDensity: VisualDensity.compact,
+                        AppStatusChip(
+                          label: recipe.category.label,
+                          color: colorScheme.primary,
                         ),
                         if (recipe.isFavorite)
-                          Chip(
-                            label: const Text('Favorite'),
-                            visualDensity: VisualDensity.compact,
+                          const AppStatusChip(
+                            label: 'Favorite',
+                            color: AppColors.pink,
+                            icon: Icons.star_rounded,
                           ),
                       ],
                     ),
@@ -482,25 +479,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
-      backgroundColor: AppColors.dangerSoft,
-      borderColor: AppColors.danger.withValues(alpha: 0.18),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: Column(
-          children: <Widget>[
-            const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => unawaited(onRetry()),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppErrorState(message: message, onRetry: onRetry);
   }
 }
 
@@ -520,39 +499,14 @@ class _EmptyState extends StatelessWidget {
         ? 'Try a different search or turn off the favorites filter.'
         : 'Create a recipe first so you can assign it to a meal slot.';
 
-    return AppPanel(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: Column(
-          children: <Widget>[
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(Icons.menu_book_outlined, color: AppColors.primary),
-            ),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (!hasSearchQuery) ...<Widget>[
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: onCreateRecipe,
-                icon: const Icon(Icons.add),
-                label: const Text('Create Recipe'),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return AppMessageState(
+      icon: hasSearchQuery
+          ? Icons.search_off_rounded
+          : Icons.menu_book_outlined,
+      title: title,
+      description: description,
+      actionLabel: hasSearchQuery ? null : 'Create Recipe',
+      onAction: hasSearchQuery ? null : onCreateRecipe,
     );
   }
 }

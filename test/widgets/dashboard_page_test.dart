@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:devmob_gestionrepas/models/app_user.dart';
 import 'package:devmob_gestionrepas/models/auth_failure.dart';
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/ingredient_unit.dart';
 import 'package:devmob_gestionrepas/models/meal_plan_entry.dart';
 import 'package:devmob_gestionrepas/models/meal_slot_type.dart';
 import 'package:devmob_gestionrepas/models/processed_recipe_image.dart';
@@ -218,13 +219,13 @@ Recipe _recipe() {
         displayName: 'Black Olives',
         canonicalName: 'black olives',
         quantity: 1,
-        unit: 'cup',
+        unit: IngredientUnit.cup,
       ),
       Ingredient(
         displayName: 'Bread',
         canonicalName: 'bread',
         quantity: 2,
-        unit: 'slice',
+        unit: IngredientUnit.slice,
       ),
     ],
     steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Assemble and serve')],
@@ -235,7 +236,7 @@ Recipe _recipe() {
 
 MealPlanEntry _entry({required DateTime date, required Recipe recipe}) {
   return MealPlanEntry(
-    id: MealPlanEntry.buildId(date: date, slotType: MealSlotType.lunch),
+    id: MealPlanEntry.buildId(date: date, slotType: MealSlotType.lunch, recipeId: recipe.id),
     ownerUid: 'user-1',
     date: date,
     slotType: MealSlotType.lunch,

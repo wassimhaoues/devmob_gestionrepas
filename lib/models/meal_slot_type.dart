@@ -1,7 +1,8 @@
 enum MealSlotType {
   breakfast('breakfast', 'Breakfast'),
   lunch('lunch', 'Lunch'),
-  dinner('dinner', 'Dinner');
+  dinner('dinner', 'Dinner'),
+  dessert('dessert', 'Dessert');
 
   const MealSlotType(this.value, this.label);
 

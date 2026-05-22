@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'app_panels.dart';
 
 class AuthShell extends StatelessWidget {
   const AuthShell({
@@ -24,17 +25,11 @@ class AuthShell extends StatelessWidget {
 
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[Color(0xFFEAF7F0), AppColors.background],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppGradients.screen),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: Column(
@@ -46,19 +41,8 @@ class AuthShell extends StatelessWidget {
                         height: 72,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: <Color>[
-                              AppColors.primary,
-                              AppColors.primaryDark,
-                            ],
-                          ),
-                          boxShadow: <BoxShadow>[
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.18),
-                              blurRadius: 26,
-                              offset: const Offset(0, 14),
-                            ),
-                          ],
+                          gradient: AppGradients.brand,
+                          boxShadow: AppShadows.hero(AppColors.primary),
                         ),
                         child: Icon(
                           topBadgeIcon,
@@ -81,21 +65,10 @@ class AuthShell extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: AppColors.border),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            blurRadius: 30,
-                            offset: const Offset(0, 18),
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: AppSpacing.xl),
+                    AppPanel(
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      radius: 30,
                       child: child,
                     ),
                     if (footer != null) ...<Widget>[

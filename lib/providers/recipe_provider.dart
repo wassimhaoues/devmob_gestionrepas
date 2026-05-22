@@ -605,7 +605,6 @@ class RecipeProvider extends ChangeNotifier {
         canonicalName: IngredientNormalizer.normalizeCanonicalName(
           canonicalSource,
         ),
-        unit: IngredientNormalizer.normalizeDisplayName(ingredient.unit),
       );
     }).toList();
   }

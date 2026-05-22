@@ -1,3 +1,4 @@
+import '../../models/ingredient_unit.dart';
 import '../../models/meal_plan_entry.dart';
 import '../../models/recipe.dart';
 import '../../models/shopping_list.dart';
@@ -42,14 +43,16 @@ class ShoppingListGeneratorService {
 
       for (final ingredient in recipe.ingredients) {
         final canonicalName = ingredient.canonicalName.trim();
-        final unit = ingredient.unit.trim();
-        if (canonicalName.isEmpty || unit.isEmpty) {
+        if (canonicalName.isEmpty) {
           continue;
         }
 
+        final baseUnit = _baseUnit(ingredient.unit);
+        final baseQuantity = _toBaseQuantity(ingredient.quantity, ingredient.unit);
+
         final itemId = ShoppingListItem.buildId(
           canonicalName: canonicalName,
-          unit: unit,
+          unit: baseUnit,
         );
         final current = itemsByKey[itemId];
         if (current == null) {
@@ -59,14 +62,14 @@ class ShoppingListGeneratorService {
             displayName: ingredient.displayName.trim().isEmpty
                 ? canonicalName
                 : ingredient.displayName.trim(),
-            totalQuantity: ingredient.quantity,
-            unit: unit,
+            totalQuantity: baseQuantity,
+            unit: baseUnit,
             sourceRecipeIds: <String>[recipe.id],
           );
           continue;
         }
 
-        current.totalQuantity += ingredient.quantity;
+        current.totalQuantity += baseQuantity;
         final recipeId = recipe.id.trim();
         if (recipeId.isNotEmpty &&
             !current.sourceRecipeIds.contains(recipeId)) {
@@ -109,6 +112,50 @@ class ShoppingListGeneratorService {
       generatedAt: DateTime.now(),
       items: items,
     );
+  }
+
+  static String _baseUnit(IngredientUnit unit) {
+    switch (unit) {
+      case IngredientUnit.g:
+      case IngredientUnit.kg:
+      case IngredientUnit.mg:
+        return 'g';
+      case IngredientUnit.ml:
+      case IngredientUnit.l:
+      case IngredientUnit.cl:
+      case IngredientUnit.tsp:
+      case IngredientUnit.tbsp:
+      case IngredientUnit.cup:
+        return 'ml';
+      case IngredientUnit.piece:
+      case IngredientUnit.pinch:
+      case IngredientUnit.bunch:
+      case IngredientUnit.slice:
+      case IngredientUnit.can:
+      case IngredientUnit.toTaste:
+        return unit.value;
+    }
+  }
+
+  static double _toBaseQuantity(double quantity, IngredientUnit unit) {
+    switch (unit) {
+      case IngredientUnit.kg:
+        return quantity * 1000;
+      case IngredientUnit.mg:
+        return quantity / 1000;
+      case IngredientUnit.l:
+        return quantity * 1000;
+      case IngredientUnit.cl:
+        return quantity * 10;
+      case IngredientUnit.tsp:
+        return quantity * 4.92892;
+      case IngredientUnit.tbsp:
+        return quantity * 14.7868;
+      case IngredientUnit.cup:
+        return quantity * 240;
+      default:
+        return quantity;
+    }
   }
 }
 

@@ -54,19 +54,29 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
     final recipe = resolvedId == null ? null : provider.recipeById(resolvedId);
 
     if (resolvedId == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Recipe detail')),
-        body: const Center(child: Text('Recipe id is missing.')),
+      return const AppScaffold(
+        title: 'Recipe detail',
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: AppMessageState(
+              icon: Icons.link_off_rounded,
+              title: 'Recipe link is missing',
+              description:
+                  'Open this screen from a recipe card to view details.',
+            ),
+          ),
+        ),
       );
     }
 
     if (recipe == null && provider.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppScaffold(useAppBar: false, body: _RecipeLoadingState());
     }
 
     if (recipe == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Recipe detail')),
+      return AppScaffold(
+        title: 'Recipe detail',
         body: _MissingRecipeState(
           message: provider.errorMessage ?? 'Recipe not found.',
           onRetry: () =>
@@ -89,13 +99,10 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               child: Column(
                 children: <Widget>[
-                  Transform.translate(
-                    offset: const Offset(0, -24),
-                    child: _RecipeSummaryHeader(recipe: recipe),
-                  ),
+                  _RecipeSummaryHeader(recipe: recipe),
                   _RecipeSection(
                     title: 'Ingredients',
                     child: Column(
@@ -106,7 +113,7 @@ class _RecipeDetailPageState extends State<RecipeDetailPage> {
                               child: _IngredientRow(
                                 label: ingredient.displayName,
                                 quantity:
-                                    '${ingredient.quantity} ${ingredient.unit}',
+                                    '${ingredient.quantity} ${ingredient.unit.value}',
                               ),
                             ),
                           )
@@ -277,17 +284,7 @@ class _RecipeHeroSliver extends StatelessWidget {
             else
               _HeroFallback(recipe: recipe),
             const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[
-                    Color(0x33000000),
-                    Color(0x14000000),
-                    Color(0xA614241B),
-                  ],
-                ),
-              ),
+              decoration: BoxDecoration(gradient: AppGradients.imageScrim),
             ),
           ],
         ),
@@ -385,26 +382,29 @@ class _RecipeSummaryHeader extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _StatTile(
-                  label: 'Ingredients',
-                  value: recipe.ingredients.length.toString(),
-                  icon: Icons.shopping_basket_outlined,
-                  color: AppColors.amber,
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Expanded(
+                  child: _StatTile(
+                    label: 'Ingredients',
+                    value: recipe.ingredients.length.toString(),
+                    icon: Icons.shopping_basket_outlined,
+                    color: AppColors.amber,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatTile(
-                  label: 'Steps',
-                  value: recipe.steps.length.toString(),
-                  icon: Icons.format_list_numbered_rounded,
-                  color: AppColors.indigo,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _StatTile(
+                    label: 'Steps',
+                    value: recipe.steps.length.toString(),
+                    icon: Icons.format_list_numbered_rounded,
+                    color: AppColors.indigo,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -420,17 +420,7 @@ class _MetaBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
-      ),
-    );
+    return AppStatusChip(label: label, color: color);
   }
 }
 
@@ -449,23 +439,12 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceTint,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(icon, color: color),
-          const SizedBox(height: 10),
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 2),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
+    return AppStatTile(
+      label: label,
+      value: value,
+      icon: icon,
+      accentColor: color,
+      backgroundColor: color.withValues(alpha: 0.12),
     );
   }
 }
@@ -502,19 +481,31 @@ class _IngredientRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceTint,
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.md),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: <Widget>[
-          Expanded(child: Text(label)),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
           const SizedBox(width: 12),
-          Text(
-            quantity,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(color: AppColors.primary),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(AppRadii.pill),
+            ),
+            child: Text(
+              quantity,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(color: AppColors.primary),
+            ),
           ),
         ],
       ),
@@ -532,8 +523,8 @@ class _StepRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceTint,
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.md),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
@@ -544,7 +535,7 @@ class _StepRow extends StatelessWidget {
             height: 28,
             decoration: BoxDecoration(
               color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(AppRadii.pill),
             ),
             alignment: Alignment.center,
             child: Text(
@@ -578,22 +569,29 @@ class _MissingRecipeState extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: AppPanel(
-          backgroundColor: AppColors.dangerSoft,
-          borderColor: AppColors.danger.withValues(alpha: 0.2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Icon(Icons.menu_book_outlined, size: 48),
-              const SizedBox(height: 12),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => unawaited(onRetry()),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+        child: AppErrorState(
+          title: 'Recipe unavailable',
+          message: message,
+          onRetry: () async {
+            await onRetry();
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeLoadingState extends StatelessWidget {
+  const _RecipeLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: AppLoadingState(
+          message: 'Loading recipe details...',
+          icon: Icons.menu_book_outlined,
         ),
       ),
     );

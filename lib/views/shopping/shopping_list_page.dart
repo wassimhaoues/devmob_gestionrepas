@@ -79,7 +79,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
               mealPlanProvider.entries.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 56),
-              child: Center(child: CircularProgressIndicator()),
+              child: AppLoadingState(
+                message: 'Loading meal plan...',
+                icon: Icons.calendar_month_outlined,
+              ),
             )
           else if (mealPlanProvider.status == MealPlanProviderStatus.error &&
               mealPlanProvider.entries.isEmpty)
@@ -100,7 +103,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
               shoppingProvider.completedItems.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 56),
-              child: Center(child: CircularProgressIndicator()),
+              child: AppLoadingState(
+                message: 'Generating shopping list...',
+                icon: Icons.shopping_bag_outlined,
+              ),
             )
           else if (shoppingProvider.status == ShoppingListProviderStatus.error)
             _ErrorCard(
@@ -210,7 +216,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
     final uid = context.read<AuthProvider>().currentUser?.uid;
     final mealPlanProvider = context.read<MealPlanProvider>();
-    if (uid == null || uid == _lastSyncedMealPlanUid || mealPlanProvider.uid == uid) {
+    if (uid == null ||
+        uid == _lastSyncedMealPlanUid ||
+        mealPlanProvider.uid == uid) {
       return;
     }
 
@@ -291,19 +299,9 @@ class _HeroHeader extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[AppColors.primary, AppColors.indigo],
-        ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.indigo.withValues(alpha: 0.22),
-            blurRadius: 26,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        gradient: AppGradients.brand,
+        borderRadius: BorderRadius.circular(AppRadii.xl),
+        boxShadow: AppShadows.hero(AppColors.primary),
       ),
       padding: const EdgeInsets.all(22),
       child: Column(
@@ -317,15 +315,16 @@ class _HeroHeader extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       'Shopping List',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(color: Colors.white),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall?.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       '${_formatDate(week.startDate)} - ${_formatDate(week.endDate)}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -409,9 +408,9 @@ class _HeroTag extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Colors.white,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: Colors.white),
           ),
         ],
       ),
@@ -452,9 +451,9 @@ class _HeroAction extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: Colors.white,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: Colors.white),
             ),
           ],
         ),
@@ -479,7 +478,6 @@ class _OverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppPanel(
-      backgroundColor: AppColors.surfaceTint,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -602,14 +600,26 @@ class _PendingSection extends StatelessWidget {
           ),
           if (isExpanded) ...<Widget>[
             const SizedBox(height: 12),
-            for (var index = 0; index < items.length; index++) ...<Widget>[
-              _PendingIngredientTile(item: items[index], onToggle: onToggle),
-              if (index < items.length - 1)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 6),
-                  child: Divider(height: 1),
-                ),
-            ],
+            Builder(
+              builder: (context) {
+                final groups = _groupByCanonical(items);
+                return Column(
+                  children: <Widget>[
+                    for (var i = 0; i < groups.length; i++) ...<Widget>[
+                      _PendingIngredientTile(
+                        items: groups[i],
+                        onToggle: onToggle,
+                      ),
+                      if (i < groups.length - 1)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 6),
+                          child: Divider(height: 1),
+                        ),
+                    ],
+                  ],
+                );
+              },
+            ),
           ],
         ],
       ),
@@ -653,7 +663,8 @@ class _CompletedSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   _CountBadge(
-                    label: '${items.length} batch${items.length == 1 ? '' : 'es'}',
+                    label:
+                        '${items.length} batch${items.length == 1 ? '' : 'es'}',
                     accentColor: AppColors.primarySoft,
                     textColor: AppColors.primaryDark,
                   ),
@@ -734,20 +745,30 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _PendingIngredientTile extends StatelessWidget {
-  const _PendingIngredientTile({required this.item, required this.onToggle});
+  const _PendingIngredientTile({required this.items, required this.onToggle});
 
-  final ShoppingListItem item;
+  final List<ShoppingListItem> items;
   final Future<void> Function(String itemId) onToggle;
+
+  Future<void> _toggleAll() async {
+    for (final item in items) {
+      await onToggle(item.id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final primary = items.first;
+    final isNewBatch = items.any((i) => i.isNewBatch);
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => unawaited(onToggle(item.id)),
+      onTap: () => unawaited(_toggleAll()),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: item.isNewBatch ? AppColors.amberSoft.withValues(alpha: 0.45) : Colors.white,
+          color: isNewBatch
+              ? AppColors.amberSoft.withValues(alpha: 0.45)
+              : Colors.white,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -762,7 +783,7 @@ class _PendingIngredientTile extends StatelessWidget {
               ),
               child: Checkbox(
                 value: false,
-                onChanged: (_) => unawaited(onToggle(item.id)),
+                onChanged: (_) => unawaited(_toggleAll()),
               ),
             ),
             const SizedBox(width: 12),
@@ -774,17 +795,17 @@ class _PendingIngredientTile extends StatelessWidget {
                     children: <Widget>[
                       Expanded(
                         child: Text(
-                          item.displayName,
+                          primary.displayName,
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
-                      if (item.isNewBatch) const _TinyBadge(label: 'New'),
+                      if (isNewBatch) const _TinyBadge(label: 'New'),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.origin == ShoppingListItemOrigin.reopened
+                    primary.origin == ShoppingListItemOrigin.reopened
                         ? 'Reopened from completed history'
                         : 'Tap when added to cart',
                     style: Theme.of(context).textTheme.bodySmall,
@@ -793,9 +814,30 @@ class _PendingIngredientTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            _QuantityPill(
-              label: _formatQuantity(item.totalQuantity, item.unit),
-            ),
+            if (items.length == 1)
+              _QuantityPill(
+                label: _formatQuantity(
+                  items.first.totalQuantity,
+                  items.first.unit,
+                ),
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: items
+                    .map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: _QuantityPill(
+                          label: _formatQuantity(
+                            item.totalQuantity,
+                            item.unit,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
           ],
         ),
       ),
@@ -888,9 +930,7 @@ class _QuantityPill extends StatelessWidget {
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
           fontWeight: FontWeight.w700,
           color: AppColors.heading,
         ),
@@ -944,9 +984,9 @@ class _CountBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: textColor,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: textColor),
       ),
     );
   }
@@ -965,32 +1005,7 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          children: <Widget>[
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(icon, size: 28, color: AppColors.primary),
-            ),
-            const SizedBox(height: 14),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppMessageState(icon: icon, title: title, description: description);
   }
 }
 
@@ -1002,25 +1017,7 @@ class _ErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
-      backgroundColor: AppColors.dangerSoft,
-      borderColor: AppColors.danger.withValues(alpha: 0.18),
-      child: Column(
-        children: <Widget>[
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () => unawaited(onRetry()),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Try again'),
-          ),
-        ],
-      ),
-    );
+    return AppErrorState(message: message, onRetry: onRetry);
   }
 }
 
@@ -1100,29 +1097,31 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.md),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(12),
+              color: accentColor,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 18, color: accentColor),
+            child: Icon(icon, size: 18, color: Colors.white),
           ),
           const SizedBox(height: 10),
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
+              color: accentColor,
             ),
           ),
           const SizedBox(height: 2),
@@ -1131,6 +1130,15 @@ class _StatTile extends StatelessWidget {
       ),
     );
   }
+}
+
+List<List<ShoppingListItem>> _groupByCanonical(List<ShoppingListItem> items) {
+  final map = <String, List<ShoppingListItem>>{};
+  for (final item in items) {
+    final key = item.canonicalName.isEmpty ? item.id : item.canonicalName;
+    (map[key] ??= <ShoppingListItem>[]).add(item);
+  }
+  return map.values.toList();
 }
 
 String _formatDate(DateTime date) {
@@ -1158,11 +1166,19 @@ String _formatDateTime(DateTime dateTime) {
 }
 
 String _formatQuantity(double quantity, String unit) {
-  final normalizedQuantity = quantity % 1 == 0
-      ? quantity.toStringAsFixed(0)
-      : quantity
-            .toStringAsFixed(2)
-            .replaceFirst(RegExp(r'0+$'), '')
-            .replaceFirst(RegExp(r'\.$'), '');
-  return '$normalizedQuantity $unit';
+  if (unit == 'g' && quantity >= 1000) {
+    return '${_formatNum(quantity / 1000)} kg';
+  }
+  if (unit == 'ml' && quantity >= 1000) {
+    return '${_formatNum(quantity / 1000)} l';
+  }
+  return '${_formatNum(quantity)} $unit';
+}
+
+String _formatNum(double value) {
+  if (value % 1 == 0) return value.toStringAsFixed(0);
+  return value
+      .toStringAsFixed(2)
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
 }

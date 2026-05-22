@@ -68,7 +68,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Your week is empty'), findsOneWidget);
-    expect(find.text('Tap to assign a recipe'), findsNWidgets(3));
+    expect(find.text('Tap + to add a recipe to this slot.'), findsNWidgets(4));
 
     mealPlanProvider.dispose();
     authProvider.dispose();
@@ -106,7 +106,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Overnight Oats'), findsOneWidget);
-    expect(find.text('Tap to assign a recipe'), findsNWidgets(2));
+    expect(find.text('Tap + to add a recipe to this slot.'), findsNWidgets(3));
 
     mealPlanProvider.dispose();
     authProvider.dispose();
@@ -119,7 +119,7 @@ MealPlanEntry _sampleEntry({
   required String recipeTitle,
 }) {
   return MealPlanEntry(
-    id: MealPlanEntry.buildId(date: date, slotType: slotType),
+    id: MealPlanEntry.buildId(date: date, slotType: slotType, recipeId: 'recipe-1'),
     ownerUid: 'user-1',
     date: date,
     slotType: slotType,

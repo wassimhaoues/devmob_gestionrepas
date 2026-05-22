@@ -4,11 +4,13 @@ import 'package:mime/mime.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/ingredient.dart';
+import '../../models/ingredient_unit.dart';
 import '../../models/recipe_category.dart';
 import '../../models/recipe_image_selection.dart';
 import '../../models/recipe_step.dart';
 import '../../providers/recipe_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_panels.dart';
 import '../../widgets/recipe_editor_widgets.dart';
 
 const String addRecipeRoute = '/recipes/add';
@@ -57,7 +59,7 @@ class _AddRecipePageState extends State<AddRecipePage> {
         displayName: draft.nameController.text,
         canonicalName: '',
         quantity: quantity ?? 0,
-        unit: draft.unitController.text,
+        unit: draft.selectedUnit,
       );
     }).toList();
 
@@ -91,8 +93,8 @@ class _AddRecipePageState extends State<AddRecipePage> {
     final provider = context.watch<RecipeProvider>();
     final isLoading = provider.isLoading;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Add recipe')),
+    return AppScaffold(
+      title: 'Add recipe',
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: <Widget>[
@@ -193,6 +195,8 @@ class _AddRecipePageState extends State<AddRecipePage> {
                   draft: _ingredients[i],
                   canRemove: _ingredients.length > 1,
                   onRemove: () => _removeIngredient(i),
+                  onUnitChanged: (unit) =>
+                      setState(() => _ingredients[i].selectedUnit = unit),
                 ),
             ],
           ),
@@ -297,12 +301,14 @@ class _IngredientFields extends StatelessWidget {
     required this.draft,
     required this.canRemove,
     required this.onRemove,
+    required this.onUnitChanged,
   });
 
   final int index;
   final _IngredientDraft draft;
   final bool canRemove;
   final VoidCallback onRemove;
+  final ValueChanged<IngredientUnit> onUnitChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -347,12 +353,21 @@ class _IngredientFields extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: TextField(
-                  controller: draft.unitController,
-                  decoration: const InputDecoration(
-                    labelText: 'Unit',
-                    hintText: 'cup, g, tbsp',
-                  ),
+                child: DropdownButtonFormField<IngredientUnit>(
+                  initialValue: draft.selectedUnit,
+                  decoration: const InputDecoration(labelText: 'Unit'),
+                  isExpanded: true,
+                  items: IngredientUnit.values
+                      .map(
+                        (u) => DropdownMenuItem<IngredientUnit>(
+                          value: u,
+                          child: Text(u.displayLabel),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (u) {
+                    if (u != null) onUnitChanged(u);
+                  },
                 ),
               ),
             ],
@@ -411,18 +426,17 @@ class _StepField extends StatelessWidget {
 }
 
 class _IngredientDraft {
-  _IngredientDraft()
+  _IngredientDraft({IngredientUnit unit = IngredientUnit.g})
     : nameController = TextEditingController(),
       quantityController = TextEditingController(),
-      unitController = TextEditingController();
+      selectedUnit = unit;
 
   final TextEditingController nameController;
   final TextEditingController quantityController;
-  final TextEditingController unitController;
+  IngredientUnit selectedUnit;
 
   void dispose() {
     nameController.dispose();
     quantityController.dispose();
-    unitController.dispose();
   }
 }

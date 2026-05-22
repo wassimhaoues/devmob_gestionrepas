@@ -1,4 +1,5 @@
 import 'package:devmob_gestionrepas/models/ingredient.dart';
+import 'package:devmob_gestionrepas/models/ingredient_unit.dart';
 import 'package:devmob_gestionrepas/models/recipe_category.dart';
 import 'package:devmob_gestionrepas/models/recipe_step.dart';
 import 'package:devmob_gestionrepas/services/recipe/recipe_validators.dart';
@@ -16,7 +17,7 @@ void main() {
             displayName: 'Tomatoes',
             canonicalName: 'tomato',
             quantity: 3,
-            unit: 'piece',
+            unit: IngredientUnit.piece,
           ),
         ],
         steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cut tomatoes.')],
@@ -35,7 +36,7 @@ void main() {
             displayName: 'Rice',
             canonicalName: 'rice',
             quantity: 1,
-            unit: 'cup',
+            unit: IngredientUnit.cup,
           ),
         ],
         steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Boil water.')],
@@ -54,7 +55,7 @@ void main() {
             displayName: 'Rice',
             canonicalName: 'rice',
             quantity: 1,
-            unit: 'cup',
+            unit: IngredientUnit.cup,
           ),
         ],
         steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cook rice.')],
@@ -87,13 +88,13 @@ void main() {
               displayName: 'Apples',
               canonicalName: 'apple',
               quantity: 1,
-              unit: 'piece',
+              unit: IngredientUnit.piece,
             ),
             Ingredient(
               displayName: 'Apple',
               canonicalName: 'apple',
               quantity: 2,
-              unit: 'piece',
+              unit: IngredientUnit.piece,
             ),
           ],
           steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Cut fruits.')],
@@ -118,7 +119,7 @@ void main() {
             displayName: 'Lettuce',
             canonicalName: 'lettuce',
             quantity: 1,
-            unit: 'head',
+            unit: IngredientUnit.piece,
           ),
         ],
         steps: const <RecipeStep>[],
@@ -137,7 +138,7 @@ void main() {
             displayName: 'Water',
             canonicalName: 'water',
             quantity: 1,
-            unit: 'liter',
+            unit: IngredientUnit.l,
           ),
         ],
         steps: const <RecipeStep>[RecipeStep(order: 1, text: 'Boil.')],

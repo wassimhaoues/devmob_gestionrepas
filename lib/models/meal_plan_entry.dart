@@ -72,12 +72,13 @@ class MealPlanEntry {
   static String buildId({
     required DateTime date,
     required MealSlotType slotType,
+    required String recipeId,
   }) {
     final normalized = DateTime(date.year, date.month, date.day);
     final y = normalized.year.toString().padLeft(4, '0');
     final m = normalized.month.toString().padLeft(2, '0');
     final d = normalized.day.toString().padLeft(2, '0');
-    return '$y$m${d}_${slotType.value}';
+    return '$y$m${d}_${slotType.value}_${recipeId.trim()}';
   }
 
   factory MealPlanEntry.fromMap({
